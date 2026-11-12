@@ -58,6 +58,9 @@ details{margin-top:1.5rem;background:var(--panel);border:1px solid var(--line);b
 summary{cursor:pointer;font-weight:600}
 details table{min-width:0;margin-top:.6rem;font-size:.92rem}
 footer{margin-top:1.5rem;color:var(--muted);font-size:.9rem;max-width:72ch}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;align-items:end;margin-bottom:.5rem}
+.filters label{margin:0;font-size:.85rem;color:var(--muted)}
+.filters button{min-height:2.6rem}
 .tabs{display:flex;gap:.4rem;margin-bottom:1rem}
 .tabs button[aria-selected=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}
@@ -188,6 +191,16 @@ header{flex-wrap:wrap}
     <button id="import">Import CSV</button>
     <input type="file" id="file" accept=".csv,text/csv" hidden>
   </div>
+
+  <div class="filters" aria-label="Filters">
+    <label>Property no.<input id="fPn" type="search" placeholder="e.g. 2025-05"></label>
+    <label>ICS no.<input id="fIcs" type="search" placeholder="e.g. 2025-001"></label>
+    <label>Received by<input id="fRb" type="search" placeholder="Name or position"></label>
+    <label>Location<input id="fLoc" type="search" placeholder="Room or office"></label>
+    <label>Condition<select id="fCond"><option value="">All conditions</option><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
+    <button id="fClear" type="button">Clear filters</button>
+  </div>
+  <p class="sub" id="count" aria-live="polite"></p>
 
   <div class="tablewrap">
     <table>
@@ -329,10 +342,14 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 function render(){
   items.forEach(function(i){if(!i.uid)i.uid=uid()});
-  var q=$("q").value.trim().toLowerCase(),g=$("fGrp").value;
-  var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+i.loc).toLowerCase().indexOf(q)>-1)});
+  var q=$("q").value.trim().toLowerCase(),g=$("fGrp").value,v=function(id){return $(id).value.trim().toLowerCase()},
+      fp=v("fPn"),fi=v("fIcs"),fr=v("fRb"),fl=v("fLoc"),fc=$("fCond").value;
+  var has=function(t,x){return!x||String(t||"").toLowerCase().indexOf(x)>-1};
+  var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+i.loc).toLowerCase().indexOf(q)>-1)&&
+    has(i.pn,fp)&&has(i.icsno,fi)&&has((i.rb||"")+" "+(i.rbpos||""),fr)&&has(i.loc,fl)&&(!fc||i.cond===fc)});
+  $("count").textContent="Showing "+list.length+" of "+items.length+" items";
   $("rows").innerHTML=list.map(function(i){
-    return '<tr><td>'+(i.grp==="04"?'<input type="checkbox" class="pick" data-pn="'+esc(i.pn)+'" aria-label="Select '+esc(i.desc)+' for ICS">':'')+'</td>'+
+    return '<tr><td>'+(i.grp==="04"?'<input type="checkbox" class="pick" data-u="'+esc(i.uid)+'"'+(picked[i.uid]?' checked':'')+' aria-label="Select '+esc(i.desc)+' for ICS">':'')+'</td>'+
     '<td><span class="tagid">'+esc(i.pn)+'</span></td>'+
     '<td>'+esc(i.desc)+(i.serial?'<div class="sub">Serial: '+esc(i.serial)+'</div>':'')+'</td>'+
     '<td>'+esc(accName(i))+'<div class="sub">'+esc(subName(i))+'</div></td>'+
@@ -391,9 +408,12 @@ $("rows").onclick=function(e){
   if(b.dataset.d&&confirm("Delete "+it.desc+" ("+it.pn+")? This cannot be undone.")){(it.files||[]).forEach(function(f){fdel(f.id).catch(function(){})});items=items.filter(function(i){return i!==it});save();render()}
 };
 $("q").oninput=render;$("fGrp").onchange=render;
+["fPn","fIcs","fRb","fLoc"].forEach(function(id){$(id).oninput=render});$("fCond").onchange=render;
+$("fClear").onclick=function(){["q","fPn","fIcs","fRb","fLoc","fCond","fGrp"].forEach(function(id){$(id).value=""});render()};
+$("rows").addEventListener("change",function(e){if(e.target.classList.contains("pick"))picked[e.target.dataset.u]=e.target.checked});
 
 /* documents (PDFs kept in this browser's IndexedDB) */
-var db,fItem=null;
+var db,fItem=null,picked={};
 function idb(){return new Promise(function(res,rej){if(db)return res(db);var r=indexedDB.open("fcesFiles",1);
   r.onupgradeneeded=function(){r.result.createObjectStore("f")};r.onsuccess=function(){db=r.result;res(db)};r.onerror=function(){rej(r.error)}})}
 function fop(mode,fn){return idb().then(function(d){return new Promise(function(res,rej){var t=d.transaction("f",mode),rq=fn(t.objectStore("f"));
@@ -431,10 +451,10 @@ $("fList").onclick=function(e){
 
 /* ICS */
 $("ics").onclick=function(){
-  var picks=document.querySelectorAll(".pick:checked");
+  var picks=items.filter(function(i){return picked[i.uid]});
   if(!picks.length){alert("Tick at least one semi-expendable item in the first column.");return}
   $("icsForm").entity.value=$("icsForm").entity.value||SCHOOL;
-  var first=[].map.call(picks,function(c){return items.find(function(i){return i.pn===c.dataset.pn})});
+  var first=picks;
   var f=$("icsForm"),pick=function(k){var m=first.find(function(i){return i[k]});return m?m[k]:""};
   f.icsno.value=pick("icsno");f.rbName.value=pick("rb");f.rbPos.value=pick("rbpos");
   $("icsDlg").showModal();
@@ -442,7 +462,7 @@ $("ics").onclick=function(){
 $("icsCancel").onclick=function(){$("icsDlg").close()};
 $("icsForm").addEventListener("submit",function(e){
   e.preventDefault();var f=$("icsForm");
-  var sel=[].map.call(document.querySelectorAll(".pick:checked"),function(c){return items.find(function(i){return i.pn===c.dataset.pn})});
+  var sel=items.filter(function(i){return picked[i.uid]});
   sel.forEach(function(i){i.icsno=f.icsno.value.trim();i.rb=f.rbName.value.trim();i.rbpos=f.rbPos.value.trim()});save();render();
   var rows=sel.map(function(i){return"<tr><td class='c'>"+esc(i.qty)+"</td><td class='c'>"+esc(i.unit)+"</td><td>"+esc(i.pn)+"</td><td>"+esc(i.serial)+"</td><td>"+peso(i.cost)+"</td><td>"+peso(i.qty*i.cost)+"</td><td>"+esc(i.desc)+"</td><td></td><td>"+esc(i.life)+"</td></tr>"}).join("");
   for(var k=sel.length;k<8;k++)rows+="<tr>"+"<td>&nbsp;</td>".repeat(9)+"</tr>";
