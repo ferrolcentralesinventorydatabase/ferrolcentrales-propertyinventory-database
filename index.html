@@ -201,6 +201,7 @@ header{flex-wrap:wrap}
     <button id="fClear" type="button">Clear filters</button>
   </div>
   <p class="sub" id="count" aria-live="polite"></p>
+  <div class="card" id="sum" hidden style="margin-bottom:1rem"></div>
 
   <div class="tablewrap">
     <table>
@@ -252,6 +253,12 @@ header{flex-wrap:wrap}
     </div>
     <label>Received by (position / office)<input name="rbpos" maxlength="60" placeholder="Optional"></label>
     <label>Condition<select name="cond"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
+    <div class="row">
+      <label>Property number
+        <select name="pmode"><option value="auto">Generate automatically</option><option value="manual">Type it myself</option></select>
+      </label>
+      <label id="pmWrap" hidden>Your property number<input name="pnman" maxlength="40" placeholder="e.g. 2025-05-03-0001-01"></label>
+    </div>
     <div class="preview">Property number<br><b id="pv">-</b></div>
     <div class="btns"><button type="button" id="cancel">Cancel</button><button class="primary">Save item</button></div>
   </form>
@@ -347,6 +354,18 @@ function render(){
   var has=function(t,x){return!x||String(t||"").toLowerCase().indexOf(x)>-1};
   var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+i.loc).toLowerCase().indexOf(q)>-1)&&
     has(i.pn,fp)&&has(i.icsno,fi)&&has((i.rb||"")+" "+(i.rbpos||""),fr)&&has(i.loc,fl)&&(!fc||i.cond===fc)});
+  var act=q||fp||fi||fr||fl||fc||g,S=$("sum");
+  if(!act||!list.length){S.hidden=true}else{
+    var m={},tot={items:0,units:0,val:0};
+    list.forEach(function(i){var n=(i.rb||"").trim(),k=n.toLowerCase(),
+      o=m[k]||(m[k]={name:n||"Not yet received",pos:"",ics:{},items:0,units:0,val:0});
+      if(!o.pos&&i.rbpos)o.pos=i.rbpos;if(i.icsno)o.ics[i.icsno]=1;
+      o.items++;o.units+=i.qty;o.val+=i.qty*i.cost;tot.items++;tot.units+=i.qty;tot.val+=i.qty*i.cost});
+    var rs=Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return b.val-a.val});
+    S.innerHTML='<h2>Summary per name (filtered results)</h2><div class="tablewrap" style="border:0"><table style="min-width:520px"><thead><tr><th>Received by</th><th>Position / office</th><th>ICS no(s).</th><th class="num">Items</th><th class="num">Units</th><th class="num">Total value</th></tr></thead><tbody>'+
+      rs.map(function(o){return'<tr><td>'+esc(o.name)+'</td><td>'+esc(o.pos)+'</td><td>'+esc(Object.keys(o.ics).join(", "))+'</td><td class="num">'+o.items+'</td><td class="num">'+o.units+'</td><td class="num">'+peso(o.val)+'</td></tr>'}).join("")+
+      '<tr><td colspan="3"><b>Total</b></td><td class="num"><b>'+tot.items+'</b></td><td class="num"><b>'+tot.units+'</b></td><td class="num"><b>'+peso(tot.val)+'</b></td></tr></tbody></table></div>';
+    S.hidden=false}
   $("count").textContent="Showing "+list.length+" of "+items.length+" items";
   $("rows").innerHTML=list.map(function(i){
     return '<tr><td>'+(i.grp==="04"?'<input type="checkbox" class="pick" data-u="'+esc(i.uid)+'"'+(picked[i.uid]?' checked':'')+' aria-label="Select '+esc(i.desc)+' for ICS">':'')+'</td>'+
@@ -375,16 +394,17 @@ function fillGl(keep){var f=F(),gl=ACC[f.grp.value].subs[f.sub.value].gl;
   if(keep&&gl[keep])f.gl.value=keep;preview()}
 function readForm(){var f=F();return{date:f.date.value,desc:f.desc.value.trim(),grp:f.grp.value,sub:f.sub.value,gl:f.gl.value,
   loc:f.loc.value.trim(),off:p(f.off.value||"0",2),qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
-  serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
-function pnFinal(d){return editing&&keyOf(editing)===keyOf(d)?editing.pn:makePN(d,editing)}
-function preview(){var d=readForm();$("pv").textContent=d.date?pnFinal(d):"Choose the purchase date first"}
+  serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
+function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)?editing.pn:makePN(d,editing)}
+function pmUI(){var m=F().pmode.value==="manual";$("pmWrap").hidden=!m;F().pnman.required=m}
+function preview(){var d=readForm();$("pv").textContent=d.pmode==="manual"?(d.pnman||"Type the property number above"):d.date?pnFinal(d):"Choose the purchase date first"}
 
 function openForm(it){
   editing=it||null;var f=F();$("dTitle").textContent=it?"Edit item":"Add item";
   f.date.value=it?it.date:new Date().toISOString().slice(0,10);f.desc.value=it?it.desc:"";f.fmt.value=it?it.fmt:"full";
   f.qty.value=it?it.qty:1;f.unit.value=it?it.unit:"pc";f.cost.value=it?it.cost:0;f.life.value=it?it.life:"";
   f.grp.value=it?it.grp:"04";fillSub(it&&it.sub);if(it)fillGl(it.gl);
-  f.serial.value=it?it.serial:"";f.loc.value=it?it.loc:"";f.off.value=it?it.off:"01";f.cond.value=it?it.cond:"Good";f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
+  f.serial.value=it?it.serial:"";f.loc.value=it?it.loc:"";f.off.value=it?it.off:"01";f.cond.value=it?it.cond:"Good";f.pmode.value=it&&it.pmode||"auto";f.pnman.value=it&&it.pmode==="manual"?it.pn:"";pmUI();f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
   preview();$("dlg").showModal();f.desc.focus();
 }
 $("add").onclick=function(){openForm()};
@@ -392,10 +412,11 @@ $("cancel").onclick=function(){$("dlg").close()};
 var ff=F();
 ff.grp.onchange=function(){fillSub()};ff.sub.onchange=function(){fillGl()};
 ff.cost.oninput=function(){ff.grp.value=Number(ff.cost.value)>50000?"06":"04";fillSub()};
+ff.pmode.onchange=function(){pmUI();preview()};ff.pnman.oninput=preview;
 ["date","fmt","gl","off","serial"].forEach(function(n){ff[n].onchange=preview;ff[n].oninput=preview});
 ff.addEventListener("submit",function(e){
   e.preventDefault();if(!ff.reportValidity())return;
-  var d=readForm();d.pn=pnFinal(d);
+  var d=readForm();d.pn=pnFinal(d);delete d.pnman;
   if(items.some(function(i){return i!==editing&&i.pn===d.pn})&&!confirm("Another item already has property no. "+d.pn+". Save anyway?"))return;
   if(editing)Object.assign(editing,d);else items.push(d);
   save();render();$("dlg").close();
@@ -475,7 +496,7 @@ $("icsForm").addEventListener("submit",function(e){
 });
 
 /* CSV */
-var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos"];
+var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos","pmode"];
 function cell(v){v=String(v==null?"":v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 $("export").onclick=function(){
   var csv=[HEAD.join(",")].concat(items.map(function(i){return HEAD.map(function(h){return cell(i[h])}).join(",")})).join("\n");
