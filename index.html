@@ -285,9 +285,10 @@ footer{margin-top:.8rem}
       <label class="s2">General ledger account<select name="gl"></select></label>
       <label class="s2">Manufacturer serial no.<input name="serial" maxlength="40" placeholder="Last 4 digits go in the property no."></label>
 
-      <label class="s2">Location / office name<input name="loc" required maxlength="60" placeholder="e.g. Grade 3 room"></label>
-      <label>Office code (2 digits)<input name="off" required pattern="[0-9]{2}" maxlength="2" value="01"></label>
+      <label class="s2">Location / office name<select name="locsel" required></select></label>
+      <label>Office code (type 2 digits)<input name="off" inputmode="numeric" maxlength="2" pattern="[0-9]{2}" placeholder="e.g. 05" autocomplete="off" style="font-weight:600"></label>
       <label>Condition<select name="cond"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
+      <label id="locWrap" class="s4" hidden>Specify the location<input name="locOther" maxlength="60" placeholder="e.g. Grade 3 room"></label>
 
       <label>ICS no.<input name="icsno" maxlength="30" placeholder="Optional"></label>
       <label>Received by (name)<input name="rb" maxlength="60" placeholder="Optional"></label>
@@ -387,9 +388,9 @@ function makePN(d,self){
 }
 function seed(){
   var raw=[
-   {date:"2025-06-12",desc:"Student armchair",grp:"04",sub:"06",gl:"01",loc:"Grade 1 room",off:"01",qty:35,unit:"pc",cost:1200,serial:"",life:"10 years",cond:"Good",fmt:"full"},
-   {date:"2025-08-20",desc:"Laptop computer",grp:"04",sub:"05",gl:"03",loc:"Faculty room",off:"02",qty:1,unit:"unit",cost:28000,serial:"SN-48210",life:"5 years",cond:"Good",fmt:"full"},
-   {date:"2024-03-05",desc:"Generator set",grp:"06",sub:"05",gl:"99",loc:"Storage room",off:"03",qty:1,unit:"unit",cost:85000,serial:"",life:"10 years",cond:"Fair",fmt:"full"}];
+   {date:"2025-06-12",desc:"Student armchair",grp:"04",sub:"06",gl:"01",loc:"Classroom",off:"05",qty:35,unit:"pc",cost:1200,serial:"",life:"10 years",cond:"Good",fmt:"full"},
+   {date:"2025-08-20",desc:"Laptop computer",grp:"04",sub:"05",gl:"03",loc:"Faculty Room",off:"13",qty:1,unit:"unit",cost:28000,serial:"SN-48210",life:"5 years",cond:"Good",fmt:"full"},
+   {date:"2024-03-05",desc:"Generator set",grp:"06",sub:"05",gl:"99",loc:"Property and Supply Room",off:"14",qty:1,unit:"unit",cost:85000,serial:"",life:"10 years",cond:"Fair",fmt:"full"}];
   raw.forEach(function(r){r.pn=makePN(r);items.push(r)});
 }
 function load(){try{var s=localStorage.getItem(KEY);if(s){items=JSON.parse(s);return}}catch(e){}seed()}
@@ -442,12 +443,25 @@ function fillGl(keep){var f=F(),gl=ACC[f.grp.value].subs[f.sub.value].gl;
   f.gl.innerHTML=Object.keys(gl).map(function(k){return'<option value="'+k+'">'+k+' '+esc(gl[k])+'</option>'}).join("");
   if(keep&&gl[keep])f.gl.value=keep;preview()}
 function readForm(){var f=F();return{date:f.date.value,desc:f.desc.value.trim(),details:f.details.value.trim(),grp:f.grp.value,sub:f.sub.value,gl:f.gl.value,
-  loc:f.loc.value.trim(),off:p(f.off.value||"0",2),qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
+  loc:locName(),off:f.locsel.value,qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
   serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),imode:f.imode.value,invman:f.invman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
 function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)?editing.pn:makePN(d,editing)}
 function makeInv(self){var mx=0;items.forEach(function(i){if(i!==self&&/^\d+$/.test(i.invno||"")){var n=parseInt(i.invno,10);if(n>mx)mx=n}});return p(mx+1,4)}
 function invFinal(d){if(d.imode==="manual")return d.invman;if(d.imode==="none")return"";return editing&&editing.imode==="auto"&&editing.invno?editing.invno:makeInv(editing)}
 function iUI(){var m=F().imode.value==="manual";$("iWrap").hidden=!m;F().invman.required=m}
+var LOCS=[["01","District Office"],["02","Principal's Office"],["03","Admin Office"],["04","Finance Office"],["05","Classroom"],["06","ICT Laboratory"],["07","HE Room/TLE/TVL"],["08","Science Lab"],["09","School Library/Library Hub"],["10","School Canteen"],["11","School Clinic"],["12","DRRM Room"],["13","Faculty Room"],["14","Property and Supply Room"],["15","Guidance Office"],["16","Guard House"],["17","SBM Room/Office"],["18","Stage"],["19","AVR"],["20","PTA Building"],["21","Evacuation Center"],["22","Multipurpose Hall"],["23","Gymnasium"],["24","Stock Room"],["25","Dormitory/Hostel"],["26","Other Location"]];
+function locName(){var f=F(),c=f.locsel.value;if(c==="26")return f.locOther.value.trim()||"Other Location";var m=LOCS.find(function(l){return l[0]===c});return m?m[1]:""}
+function locUI(){var f=F(),o=f.locsel.value==="26";$("locWrap").hidden=!o;f.locOther.required=o;f.off.value=f.locsel.value;f.off.setCustomValidity("")}
+function codeTyped(){var f=F(),v=f.off.value.replace(/\D/g,"").slice(0,2);f.off.value=v;
+  if(v.length<2){f.off.setCustomValidity("Enter a 2-digit office code from 01 to 26.");f.locsel.value="";$("locWrap").hidden=true;f.locOther.required=false}
+  else if(LOCS.some(function(l){return l[0]===v})){f.off.setCustomValidity("");f.locsel.value=v;$("locWrap").hidden=v!=="26";f.locOther.required=v==="26"}
+  else{f.off.setCustomValidity("Office code must be from 01 to 26.");f.locsel.value="";$("locWrap").hidden=true;f.locOther.required=false}
+  preview()}
+function setLoc(it){var f=F();f.locOther.value="";
+  if(!it){f.locsel.value="";locUI();return}
+  var m=LOCS.find(function(l){return l[1].toLowerCase()===String(it.loc).toLowerCase()});
+  if(m){f.locsel.value=m[0]}else{f.locsel.value="26";f.locOther.value=it.loc}
+  locUI()}
 function updTotal(){F().total.value=peso((Number(F().qty.value)||0)*(Number(F().cost.value)||0))}
 function pmUI(){var m=F().pmode.value==="manual";$("pmWrap").hidden=!m;F().pnman.required=m}
 function preview(){var d=readForm();$("pvi").textContent=d.imode==="none"?"(blank)":d.imode==="manual"?(d.invman||"Type the number above"):invFinal(d);$("pv").textContent=d.pmode==="manual"?(d.pnman||"Type the property number above"):d.date?pnFinal(d):"Choose the purchase date first"}
@@ -457,18 +471,22 @@ function openForm(it){
   f.date.value=it?it.date:new Date().toISOString().slice(0,10);f.desc.value=it?it.desc:"";f.details.value=it&&it.details||"";f.fmt.value=it?it.fmt:"full";
   f.qty.value=it?it.qty:1;f.unit.value=it?it.unit:"pc";f.cost.value=it?it.cost:0;f.life.value=it?it.life:"";
   f.grp.value=it?it.grp:"04";fillSub(it&&it.sub);if(it)fillGl(it.gl);
-  f.serial.value=it?it.serial:"";f.loc.value=it?it.loc:"";f.off.value=it?it.off:"01";f.cond.value=it?it.cond:"Good";f.imode.value=it?(it.imode||"none"):"auto";f.invman.value=it&&it.imode==="manual"?it.invno||"":"";iUI();f.pmode.value=it&&it.pmode||"auto";updTotal();f.pnman.value=it&&it.pmode==="manual"?it.pn:"";pmUI();f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
+  f.serial.value=it?it.serial:"";setLoc(it);f.cond.value=it?it.cond:"Good";f.imode.value=it?(it.imode||"none"):"auto";f.invman.value=it&&it.imode==="manual"?it.invno||"":"";iUI();f.pmode.value=it&&it.pmode||"auto";updTotal();f.pnman.value=it&&it.pmode==="manual"?it.pn:"";pmUI();f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
   preview();$("dlg").showModal();f.desc.focus();
 }
 $("add").onclick=function(){openForm()};
 $("cancel").onclick=function(){$("dlg").close()};
 var ff=F();
 ff.grp.onchange=function(){fillSub()};ff.sub.onchange=function(){fillGl()};
+ff.locsel.innerHTML='<option value="">Choose location…</option>'+LOCS.map(function(l){return'<option value="'+l[0]+'">'+l[0]+" "+esc(l[1])+"</option>"}).join("");
+ff.locsel.onchange=function(){locUI();preview()};
+ff.off.oninput=codeTyped;
+ff.off.onblur=function(){var v=ff.off.value;if(/^\d$/.test(v)){ff.off.value="0"+v;codeTyped()}};
 ff.qty.oninput=updTotal;
 ff.cost.oninput=function(){updTotal();ff.grp.value=Number(ff.cost.value)>50000?"06":"04";fillSub()};
 ff.imode.onchange=function(){iUI();preview()};ff.invman.oninput=preview;
 ff.pmode.onchange=function(){pmUI();preview()};ff.pnman.oninput=preview;
-["date","fmt","gl","off","serial"].forEach(function(n){ff[n].onchange=preview;ff[n].oninput=preview});
+["date","fmt","gl","serial"].forEach(function(n){ff[n].onchange=preview;ff[n].oninput=preview});
 ff.addEventListener("submit",function(e){
   e.preventDefault();if(!ff.reportValidity())return;
   var d=readForm();d.pn=pnFinal(d);d.invno=invFinal(d);delete d.pnman;delete d.invman;
