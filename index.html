@@ -206,14 +206,14 @@ footer{margin-top:.8rem}
 
   <section class="stats" aria-label="Summary">
     <div class="stat"><b id="sItems">0</b><span>Items listed</span></div>
-    <div class="stat"><b id="sPPE">0</b><span>Property, Plant and Equipment (above ₱50,000)</span></div>
-    <div class="stat"><b id="sSemi">0</b><span>Semi-expendable (₱50,000 and below)</span></div>
+    <div class="stat"><b id="sPPE">0</b><span>Property, Plant and Equipment (₱50,000 and above)</span></div>
+    <div class="stat"><b id="sSemi">0</b><span>Semi-expendable (below ₱50,000)</span></div>
     <div class="stat"><b id="sVal">₱0</b><span>Total value</span></div>
   </section>
 
   <section class="pnbox" aria-label="Property number format">
-    <div><small>Property number (COA Circular 2020-006)</small><span class="fmt">YYYY-SS-GL-NNNN-LL</span>
-      <small>Year purchased · Sub-major account · General ledger account · Serial series · Location/office</small></div>
+    <div><small>Property number (COA Circular 2020-006)</small><span class="fmt">YYYY-GG-GL-NNNN-LL</span>
+      <small>Year purchased · Account group (04 below ₱50,000, 06 for ₱50,000 and above) · General ledger account · Serial series or last 4 digits of serial no. · Office code</small></div>
     <div><small>Short format, for items without a serial number</small><span class="fmt">YYYY-DD-MM-NN</span>
       <small>Year · Day · Month purchased · Number</small></div>
   </section>
@@ -230,6 +230,11 @@ footer{margin-top:.8rem}
     <input id="q" type="search" placeholder="Search by property no., description, or location" aria-label="Search">
     <button class="primary" id="add">Add item</button>
     <button id="ics">Print ICS for selected</button>
+    <select id="fSort" aria-label="Sort items">
+      <option value="new">Newest added first</option><option value="old">Oldest added first</option>
+      <option value="dnew">Date purchased: newest first</option><option value="dold">Date purchased: oldest first</option>
+    </select>
+    <button id="fixPn" hidden></button>
     <button id="stkBtn">Property stickers for selected</button>
     <button id="export">Export CSV</button>
     <button id="import">Import CSV</button>
@@ -243,7 +248,7 @@ footer{margin-top:.8rem}
     <label>Inventory item no.<input id="fInv" type="search" placeholder="e.g. 0001"></label>
     <label>Received by<input id="fRb" type="search" placeholder="Name or position"></label>
     <label>Location<input id="fLoc" type="search" placeholder="Room or office"></label>
-    <label>Account group<select id="fGrp"><option value="">All account groups</option><option value="04">04 Inventories (₱50,000 and below)</option><option value="06">06 Property, Plant and Equipment (above ₱50,000)</option></select></label>
+    <label>Account group<select id="fGrp"><option value="">All account groups</option><option value="04">04 Inventories (below ₱50,000)</option><option value="06">06 Property, Plant and Equipment (₱50,000 and above)</option></select></label>
     <label>Sub-major account<select id="fSub"></select></label>
     <label>General ledger account<select id="fGl"></select></label>
     <label>Date or year purchased<input id="fDate" type="search" placeholder="e.g. 2025 or 2025-06"></label>
@@ -277,7 +282,7 @@ footer{margin-top:.8rem}
         <select name="pmode"><option value="auto">Generate automatically</option><option value="manual">Type it myself</option></select>
       </label>
       <label class="s2">Property number format
-        <select name="fmt"><option value="full">Full: YYYY-SS-GL-NNNN-LL</option><option value="short">Short: YYYY-DD-MM-NN (no serial)</option></select>
+        <select name="fmt"><option value="full">Full: YYYY-04/06-GL-NNNN-LL</option><option value="short">Short: YYYY-DD-MM-NN (no serial)</option></select>
       </label>
       <label id="pmWrap" class="s4" hidden>Your property number<input name="pnman" maxlength="40" placeholder="e.g. 2025-05-03-0001-01"></label>
 
@@ -289,7 +294,7 @@ footer{margin-top:.8rem}
       <label>Unit cost (₱)<input name="cost" type="number" min="0" step="0.01" required value="0"></label>
       <label>Total value<input name="total" readonly tabindex="-1" value="₱0.00" style="font-weight:600"></label>
 
-      <label class="s2">Account group<select name="grp"><option value="04">04 Inventories (₱50,000 and below)</option><option value="06">06 Property, Plant and Equipment (above ₱50,000)</option></select></label>
+      <label class="s2">Account group (automatic by unit cost)<select name="grp" disabled><option value="04">04 Inventories (below ₱50,000)</option><option value="06">06 Property, Plant and Equipment (₱50,000 and above)</option></select></label>
       <label class="s2">Sub-major account<select name="sub"></select></label>
 
       <label class="s2">General ledger account<select name="gl"></select></label>
@@ -365,7 +370,7 @@ footer{margin-top:.8rem}
 (function(){
 var ACC={
 "04":{name:"Inventories",subs:{
- "05":{name:"Semi-Expendable Machinery and Equipment",gl:{"02":"Semi-Expendable Office Equipment","03":"Semi-Expendable Information and Communication Equipment","07":"Semi-Expendable Communication Equipment","08":"Semi-Expendable Disaster Response and Rescue Equipment","10":"Semi-Expendable Medical Equipment","11":"Semi-Expendable Printing Equipment","12":"Semi-Expendable Sports Equipment","13":"Semi-Expendable Technical and Scientific Equipment","14":"Semi-Expendable Construction Equipment","15":"Semi-Expendable Other Equipment"}},
+ "05":{name:"Semi-Expendable Machinery and Equipment",gl:{"02":"Semi-Expendable Office Equipment","03":"Semi-Expendable Information and Communication","07":"Semi-Expendable Communication Equipment","08":"Semi-Expendable Disaster Response and Rescue Equipment","10":"Semi-Expendable Medical Equipment","11":"Semi-Expendable Printing Equipment","12":"Semi-Expendable Sports Equipment","13":"Semi-Expendable Technical and Scientific Equipment","14":"Semi-Expendable Construction Equipment","15":"Semi-Expendable Other Equipment"}},
  "06":{name:"Semi-Expendable Furniture, Fixtures and Books",gl:{"01":"Semi-Expendable Furniture and Fixtures","02":"Semi-Expendable Books"}}}},
 "06":{name:"Property, Plant and Equipment",subs:{
  "01":{name:"Land",gl:{"00":"Land (no GL code)"}},
@@ -384,17 +389,17 @@ function subName(i){var s=ACC[i.grp]&&ACC[i.grp].subs[i.sub];return s?s.name:""}
 
 function tail(d){var x=(d.serial||"").replace(/\D/g,"");return x?p(x.slice(-4),4):""}
 function keyOf(d){var y=d.date.slice(0,4),mm=d.date.slice(5,7),dd=d.date.slice(8,10);
-  return d.fmt==="short"?["s",y,dd,mm].join("|"):["f",y,d.sub,d.gl,p(d.off,2),tail(d)].join("|")}
+  return d.fmt==="short"?["s",y,dd,mm].join("|"):["f",y,d.grp,d.gl,p(d.off,2),tail(d)].join("|")}
 function makePN(d,self){
   var y=d.date.slice(0,4),mm=d.date.slice(5,7),dd=d.date.slice(8,10),mx=0;
-  if(d.fmt==="full"&&tail(d))return[y,d.sub,d.gl,tail(d),p(d.off,2)].join("-");
+  if(d.fmt==="full"&&tail(d))return[y,d.grp,d.gl,tail(d),p(d.off,2)].join("-");
   items.forEach(function(i){
     if(i===self||i.fmt!==d.fmt)return;
     var s=i.pn.split("-"),n=parseInt(s[3],10)||0;
-    var same=d.fmt==="short"?(s[0]===y&&s[1]===dd&&s[2]===mm):(s[1]===d.sub&&s[2]===d.gl&&s[4]===p(d.off,2));
+    var same=d.fmt==="short"?(s[0]===y&&s[1]===dd&&s[2]===mm):(s[1]===d.grp&&s[2]===d.gl&&s[4]===p(d.off,2));
     if(same&&n>mx)mx=n;
   });
-  return d.fmt==="short"?[y,dd,mm,p(mx+1,2)].join("-"):[y,d.sub,d.gl,p(mx+1,4),p(d.off,2)].join("-");
+  return d.fmt==="short"?[y,dd,mm,p(mx+1,2)].join("-"):[y,d.grp,d.gl,p(mx+1,4),p(d.off,2)].join("-");
 }
 function seed(){
   var raw=[
@@ -407,6 +412,7 @@ function load(){try{var s=localStorage.getItem(KEY);if(s){items=JSON.parse(s);re
 function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function needFix(i){return i.pmode!=="manual"&&i.fmt==="full"&&String(i.pn).split("-")[1]!==i.grp}
 function render(){
   items.forEach(function(i){if(!i.uid)i.uid=uid()});
   var q=$("q").value.trim().toLowerCase(),g=$("fGrp").value,v=function(id){return $(id).value.trim().toLowerCase()},
@@ -414,6 +420,13 @@ function render(){
   var has=function(t,x){return!x||String(t||"").toLowerCase().indexOf(x)>-1};
   var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+(i.details||"")+" "+i.loc+" "+(i.invno||"")).toLowerCase().indexOf(q)>-1)&&
     has(i.pn,fp)&&has(i.icsno,fi)&&has(i.invno,fv)&&has(i.desc+" "+(i.details||""),fx)&&(!fs||i.grp+"-"+i.sub===fs)&&(!fg||i.grp+"-"+i.sub+"-"+i.gl===fg)&&has(i.date,fd)&&has(i.serial,fn)&&has((i.rb||"")+" "+(i.rbpos||""),fr)&&has(i.loc,fl)&&(!fc||i.cond===fc)});
+  var idx=new Map(),so=$("fSort").value;items.forEach(function(it,n){idx.set(it,n)});
+  list.sort(function(a,b){var r;
+    if(so==="dnew")r=a.date<b.date?1:a.date>b.date?-1:0;
+    else if(so==="dold")r=a.date>b.date?1:a.date<b.date?-1:0;
+    else if(so==="old")r=(a.added||0)-(b.added||0);
+    else r=(b.added||0)-(a.added||0);
+    if(r)return r;var d=idx.get(b)-idx.get(a);return(so==="old"||so==="dold")?-d:d});
   var act=q||fp||fi||fv||fx||fs||fg||fd||fn||fr||fl||fc||g,S=$("sum");
   if(!act||!list.length){S.hidden=true}else{
     var m={},tot={items:0,units:0,val:0};
@@ -426,6 +439,7 @@ function render(){
       rs.map(function(o){return'<tr><td>'+esc(o.name)+'</td><td>'+esc(o.pos)+'</td><td>'+esc(Object.keys(o.ics).join(", "))+'</td><td class="num">'+o.items+'</td><td class="num">'+o.units+'</td><td class="num">'+peso(o.val)+'</td></tr>'}).join("")+
       '<tr><td colspan="3"><b>Total</b></td><td class="num"><b>'+tot.items+'</b></td><td class="num"><b>'+tot.units+'</b></td><td class="num"><b>'+peso(tot.val)+'</b></td></tr></tbody></table></div>';
     S.hidden=false}
+  var nf=items.filter(needFix).length;$("fixPn").hidden=!nf;$("fixPn").textContent="Update "+nf+" old property number"+(nf>1?"s":"");
   $("count").textContent="Showing "+list.length+" of "+items.length+" items";
   $("rows").innerHTML=list.map(function(i){
     return '<tr><td>'+('<input type="checkbox" class="pick" data-u="'+esc(i.uid)+'"'+(picked[i.uid]?' checked':'')+' aria-label="Select '+esc(i.desc)+'">')+'</td>'+
@@ -455,7 +469,7 @@ function fillGl(keep){var f=F(),gl=ACC[f.grp.value].subs[f.sub.value].gl;
 function readForm(){var f=F();return{date:f.date.value,desc:f.desc.value.trim(),details:f.details.value.trim(),grp:f.grp.value,sub:f.sub.value,gl:f.gl.value,
   loc:locName(),off:f.locsel.value,qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
   serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),imode:f.imode.value,invman:f.invman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
-function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)?editing.pn:makePN(d,editing)}
+function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)&&(d.fmt!=="full"||editing.pn.split("-")[1]===d.grp)?editing.pn:makePN(d,editing)}
 function makeInv(self){var mx=0;items.forEach(function(i){if(i!==self&&/^\d+$/.test(i.invno||"")){var n=parseInt(i.invno,10);if(n>mx)mx=n}});return p(mx+1,4)}
 function invFinal(d){if(d.imode==="manual")return d.invman;if(d.imode==="none")return"";return editing&&editing.imode==="auto"&&editing.invno?editing.invno:makeInv(editing)}
 function iUI(){var m=F().imode.value==="manual";$("iWrap").hidden=!m;F().invman.required=m}
@@ -493,7 +507,7 @@ ff.locsel.onchange=function(){locUI();preview()};
 ff.off.oninput=codeTyped;
 ff.off.onblur=function(){var v=ff.off.value;if(/^\d$/.test(v)){ff.off.value="0"+v;codeTyped()}};
 ff.qty.oninput=updTotal;
-ff.cost.oninput=function(){updTotal();ff.grp.value=Number(ff.cost.value)>50000?"06":"04";fillSub()};
+ff.cost.oninput=function(){updTotal();var g=Number(ff.cost.value)>=50000?"06":"04";if(ff.grp.value!==g){ff.grp.value=g;fillSub()}preview()};
 ff.imode.onchange=function(){iUI();preview()};ff.invman.oninput=preview;
 ff.pmode.onchange=function(){pmUI();preview()};ff.pnman.oninput=preview;
 ["date","fmt","gl","serial"].forEach(function(n){ff[n].onchange=preview;ff[n].oninput=preview});
@@ -502,7 +516,7 @@ ff.addEventListener("submit",function(e){
   var d=readForm();d.pn=pnFinal(d);d.invno=invFinal(d);delete d.pnman;delete d.invman;
   if(d.invno&&items.some(function(i){return i!==editing&&i.invno===d.invno})&&!confirm("Another item already has inventory item no. "+d.invno+". Save anyway?"))return;
   if(items.some(function(i){return i!==editing&&i.pn===d.pn})&&!confirm("Another item already has property no. "+d.pn+". Save anyway?"))return;
-  if(editing)Object.assign(editing,d);else items.push(d);
+  if(editing)Object.assign(editing,d);else{d.added=Date.now();items.push(d)}
   save();render();$("dlg").close();
 });
 $("rows").onclick=function(e){
@@ -513,7 +527,7 @@ $("rows").onclick=function(e){
   if(b.dataset.e)openForm(it);
   if(b.dataset.d&&confirm("Delete "+it.desc+" ("+it.pn+")? This cannot be undone.")){(it.files||[]).forEach(function(f){fdel(f.id).catch(function(){})});items=items.filter(function(i){return i!==it});save();render()}
 };
-$("q").oninput=render;$("fGrp").onchange=render;
+$("q").oninput=render;$("fSort").onchange=render;$("fGrp").onchange=render;
 ["fDesc","fPn","fIcs","fInv","fRb","fLoc","fDate","fSer"].forEach(function(id){$(id).oninput=render});["fCond","fSub","fGl"].forEach(function(id){$(id).onchange=render});
 (function(){var a='<option value="">All sub-major accounts</option>',b='<option value="">All general ledger accounts</option>';
   Object.keys(ACC).forEach(function(g){var sa="";Object.keys(ACC[g].subs).forEach(function(sc){var S=ACC[g].subs[sc];
@@ -523,6 +537,10 @@ $("q").oninput=render;$("fGrp").onchange=render;
   $("fSub").innerHTML=a;$("fGl").innerHTML=b})();
 $("fClear").onclick=function(){["q","fDesc","fPn","fIcs","fInv","fRb","fLoc","fCond","fGrp","fSub","fGl","fDate","fSer"].forEach(function(id){$(id).value=""});render()};
 $("rows").addEventListener("change",function(e){if(e.target.classList.contains("pick"))picked[e.target.dataset.u]=e.target.checked});
+
+$("fixPn").onclick=function(){var n=items.filter(needFix).length;
+  if(!confirm("Change "+n+" automatic property number(s) to the new format (04 or 06 after the year)? Stickers you already printed will show the old numbers."))return;
+  items.forEach(function(i){if(needFix(i))i.pn=makePN(i,i)});save();render()};
 
 /* documents (PDFs kept in this browser's IndexedDB) */
 var db,fItem=null,picked={};
@@ -639,7 +657,7 @@ $("icsForm").addEventListener("submit",function(e){
 });
 
 /* CSV */
-var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos","pmode","invno","imode","details"];
+var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos","pmode","invno","imode","details","added"];
 function cell(v){v=String(v==null?"":v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 $("export").onclick=function(){
   var csv=[HEAD.join(",")].concat(items.map(function(i){return HEAD.map(function(h){return cell(i[h])}).join(",")})).join("\n");
@@ -660,7 +678,7 @@ $("file").onchange=function(e){
     if(h.indexOf("desc")<0||h.indexOf("pn")<0){alert("Use a file exported from this page (it needs pn and desc columns).");return}
     if(!confirm("Replace the current list with "+rows.length+" items from this file?"))return;
     items=rows.map(function(c){var o={};HEAD.forEach(function(k){var v=c[h.indexOf(k)];o[k]=v===undefined?"":v});
-      o.qty=Number(o.qty)||1;o.cost=Number(o.cost)||0;o.fmt=o.fmt||"full";o.cond=o.cond||"Good";return o});
+      o.added=Number(o.added)||0;o.qty=Number(o.qty)||1;o.cost=Number(o.cost)||0;o.fmt=o.fmt||"full";o.cond=o.cond||"Good";return o});
     save();render();
   };r.readAsText(file);e.target.value="";
 };
@@ -701,7 +719,7 @@ $("tInv").onclick=function(){tab(false)};$("tDash").onclick=function(){tab(true)
 /* misc */
 function ref(){
   $("ref").innerHTML=Object.keys(ACC).map(function(g){var a=ACC[g];
-    return"<h3>"+g+" "+esc(a.name)+(g==="06"?" (above ₱50,000)":" (₱50,000 and below)")+"</h3><table><thead><tr><th>Sub-major</th><th>Code</th><th>General ledger account</th><th>Code</th></tr></thead><tbody>"+
+    return"<h3>"+g+" "+esc(a.name)+(g==="06"?" (₱50,000 and above)":" (below ₱50,000)")+"</h3><table><thead><tr><th>Sub-major</th><th>Code</th><th>General ledger account</th><th>Code</th></tr></thead><tbody>"+
     Object.keys(a.subs).map(function(s){var gl=a.subs[s].gl;return Object.keys(gl).map(function(k,n){
       return"<tr><td>"+(n?"":esc(a.subs[s].name))+"</td><td>"+(n?"":s)+"</td><td>"+esc(gl[k])+"</td><td>"+k+"</td></tr>"}).join("")}).join("")+"</tbody></table>"}).join("");
 }
