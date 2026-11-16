@@ -195,6 +195,7 @@ header{flex-wrap:wrap}
   <div class="filters" aria-label="Filters">
     <label>Property no.<input id="fPn" type="search" placeholder="e.g. 2025-05"></label>
     <label>ICS no.<input id="fIcs" type="search" placeholder="e.g. 2025-001"></label>
+    <label>Inventory item no.<input id="fInv" type="search" placeholder="e.g. 0001"></label>
     <label>Received by<input id="fRb" type="search" placeholder="Name or position"></label>
     <label>Location<input id="fLoc" type="search" placeholder="Room or office"></label>
     <label>Condition<select id="fCond"><option value="">All conditions</option><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
@@ -259,7 +260,13 @@ header{flex-wrap:wrap}
       </label>
       <label id="pmWrap" hidden>Your property number<input name="pnman" maxlength="40" placeholder="e.g. 2025-05-03-0001-01"></label>
     </div>
-    <div class="preview">Property number<br><b id="pv">-</b></div>
+    <div class="row">
+      <label>Inventory item no.
+        <select name="imode"><option value="auto">Generate automatically</option><option value="manual">Type it myself</option><option value="none">Leave blank</option></select>
+      </label>
+      <label id="iWrap" hidden>Your inventory item no.<input name="invman" maxlength="30" placeholder="e.g. 0001"></label>
+    </div>
+    <div class="preview">Property number<br><b id="pv">-</b><br><span class="sub">Inventory item no.</span><br><b id="pvi">-</b></div>
     <div class="btns"><button type="button" id="cancel">Cancel</button><button class="primary">Save item</button></div>
   </form>
 </dialog>
@@ -350,11 +357,11 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function render(){
   items.forEach(function(i){if(!i.uid)i.uid=uid()});
   var q=$("q").value.trim().toLowerCase(),g=$("fGrp").value,v=function(id){return $(id).value.trim().toLowerCase()},
-      fp=v("fPn"),fi=v("fIcs"),fr=v("fRb"),fl=v("fLoc"),fc=$("fCond").value;
+      fp=v("fPn"),fi=v("fIcs"),fv=v("fInv"),fr=v("fRb"),fl=v("fLoc"),fc=$("fCond").value;
   var has=function(t,x){return!x||String(t||"").toLowerCase().indexOf(x)>-1};
-  var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+i.loc).toLowerCase().indexOf(q)>-1)&&
-    has(i.pn,fp)&&has(i.icsno,fi)&&has((i.rb||"")+" "+(i.rbpos||""),fr)&&has(i.loc,fl)&&(!fc||i.cond===fc)});
-  var act=q||fp||fi||fr||fl||fc||g,S=$("sum");
+  var list=items.filter(function(i){return(!g||i.grp===g)&&(!q||(i.pn+" "+i.desc+" "+i.loc+" "+(i.invno||"")).toLowerCase().indexOf(q)>-1)&&
+    has(i.pn,fp)&&has(i.icsno,fi)&&has(i.invno,fv)&&has((i.rb||"")+" "+(i.rbpos||""),fr)&&has(i.loc,fl)&&(!fc||i.cond===fc)});
+  var act=q||fp||fi||fv||fr||fl||fc||g,S=$("sum");
   if(!act||!list.length){S.hidden=true}else{
     var m={},tot={items:0,units:0,val:0};
     list.forEach(function(i){var n=(i.rb||"").trim(),k=n.toLowerCase(),
@@ -369,7 +376,7 @@ function render(){
   $("count").textContent="Showing "+list.length+" of "+items.length+" items";
   $("rows").innerHTML=list.map(function(i){
     return '<tr><td>'+(i.grp==="04"?'<input type="checkbox" class="pick" data-u="'+esc(i.uid)+'"'+(picked[i.uid]?' checked':'')+' aria-label="Select '+esc(i.desc)+' for ICS">':'')+'</td>'+
-    '<td><span class="tagid">'+esc(i.pn)+'</span></td>'+
+    '<td><span class="tagid">'+esc(i.pn)+'</span>'+(i.invno?'<div class="sub">Item no. '+esc(i.invno)+'</div>':'')+'</td>'+
     '<td>'+esc(i.desc)+(i.serial?'<div class="sub">Serial: '+esc(i.serial)+'</div>':'')+'</td>'+
     '<td>'+esc(accName(i))+'<div class="sub">'+esc(subName(i))+'</div></td>'+
     '<td class="num">'+esc(i.qty)+' '+esc(i.unit||"")+'</td><td class="num">'+peso(i.cost)+'</td><td class="num">'+peso(i.qty*i.cost)+'</td>'+
@@ -394,17 +401,20 @@ function fillGl(keep){var f=F(),gl=ACC[f.grp.value].subs[f.sub.value].gl;
   if(keep&&gl[keep])f.gl.value=keep;preview()}
 function readForm(){var f=F();return{date:f.date.value,desc:f.desc.value.trim(),grp:f.grp.value,sub:f.sub.value,gl:f.gl.value,
   loc:f.loc.value.trim(),off:p(f.off.value||"0",2),qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
-  serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
+  serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),imode:f.imode.value,invman:f.invman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
 function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)?editing.pn:makePN(d,editing)}
+function makeInv(self){var mx=0;items.forEach(function(i){if(i!==self&&/^\d+$/.test(i.invno||"")){var n=parseInt(i.invno,10);if(n>mx)mx=n}});return p(mx+1,4)}
+function invFinal(d){if(d.imode==="manual")return d.invman;if(d.imode==="none")return"";return editing&&editing.imode==="auto"&&editing.invno?editing.invno:makeInv(editing)}
+function iUI(){var m=F().imode.value==="manual";$("iWrap").hidden=!m;F().invman.required=m}
 function pmUI(){var m=F().pmode.value==="manual";$("pmWrap").hidden=!m;F().pnman.required=m}
-function preview(){var d=readForm();$("pv").textContent=d.pmode==="manual"?(d.pnman||"Type the property number above"):d.date?pnFinal(d):"Choose the purchase date first"}
+function preview(){var d=readForm();$("pvi").textContent=d.imode==="none"?"(blank)":d.imode==="manual"?(d.invman||"Type the number above"):invFinal(d);$("pv").textContent=d.pmode==="manual"?(d.pnman||"Type the property number above"):d.date?pnFinal(d):"Choose the purchase date first"}
 
 function openForm(it){
   editing=it||null;var f=F();$("dTitle").textContent=it?"Edit item":"Add item";
   f.date.value=it?it.date:new Date().toISOString().slice(0,10);f.desc.value=it?it.desc:"";f.fmt.value=it?it.fmt:"full";
   f.qty.value=it?it.qty:1;f.unit.value=it?it.unit:"pc";f.cost.value=it?it.cost:0;f.life.value=it?it.life:"";
   f.grp.value=it?it.grp:"04";fillSub(it&&it.sub);if(it)fillGl(it.gl);
-  f.serial.value=it?it.serial:"";f.loc.value=it?it.loc:"";f.off.value=it?it.off:"01";f.cond.value=it?it.cond:"Good";f.pmode.value=it&&it.pmode||"auto";f.pnman.value=it&&it.pmode==="manual"?it.pn:"";pmUI();f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
+  f.serial.value=it?it.serial:"";f.loc.value=it?it.loc:"";f.off.value=it?it.off:"01";f.cond.value=it?it.cond:"Good";f.imode.value=it?(it.imode||"none"):"auto";f.invman.value=it&&it.imode==="manual"?it.invno||"":"";iUI();f.pmode.value=it&&it.pmode||"auto";f.pnman.value=it&&it.pmode==="manual"?it.pn:"";pmUI();f.icsno.value=it&&it.icsno||"";f.rb.value=it&&it.rb||"";f.rbpos.value=it&&it.rbpos||"";
   preview();$("dlg").showModal();f.desc.focus();
 }
 $("add").onclick=function(){openForm()};
@@ -412,11 +422,13 @@ $("cancel").onclick=function(){$("dlg").close()};
 var ff=F();
 ff.grp.onchange=function(){fillSub()};ff.sub.onchange=function(){fillGl()};
 ff.cost.oninput=function(){ff.grp.value=Number(ff.cost.value)>50000?"06":"04";fillSub()};
+ff.imode.onchange=function(){iUI();preview()};ff.invman.oninput=preview;
 ff.pmode.onchange=function(){pmUI();preview()};ff.pnman.oninput=preview;
 ["date","fmt","gl","off","serial"].forEach(function(n){ff[n].onchange=preview;ff[n].oninput=preview});
 ff.addEventListener("submit",function(e){
   e.preventDefault();if(!ff.reportValidity())return;
-  var d=readForm();d.pn=pnFinal(d);delete d.pnman;
+  var d=readForm();d.pn=pnFinal(d);d.invno=invFinal(d);delete d.pnman;delete d.invman;
+  if(d.invno&&items.some(function(i){return i!==editing&&i.invno===d.invno})&&!confirm("Another item already has inventory item no. "+d.invno+". Save anyway?"))return;
   if(items.some(function(i){return i!==editing&&i.pn===d.pn})&&!confirm("Another item already has property no. "+d.pn+". Save anyway?"))return;
   if(editing)Object.assign(editing,d);else items.push(d);
   save();render();$("dlg").close();
@@ -429,8 +441,8 @@ $("rows").onclick=function(e){
   if(b.dataset.d&&confirm("Delete "+it.desc+" ("+it.pn+")? This cannot be undone.")){(it.files||[]).forEach(function(f){fdel(f.id).catch(function(){})});items=items.filter(function(i){return i!==it});save();render()}
 };
 $("q").oninput=render;$("fGrp").onchange=render;
-["fPn","fIcs","fRb","fLoc"].forEach(function(id){$(id).oninput=render});$("fCond").onchange=render;
-$("fClear").onclick=function(){["q","fPn","fIcs","fRb","fLoc","fCond","fGrp"].forEach(function(id){$(id).value=""});render()};
+["fPn","fIcs","fInv","fRb","fLoc"].forEach(function(id){$(id).oninput=render});$("fCond").onchange=render;
+$("fClear").onclick=function(){["q","fPn","fIcs","fInv","fRb","fLoc","fCond","fGrp"].forEach(function(id){$(id).value=""});render()};
 $("rows").addEventListener("change",function(e){if(e.target.classList.contains("pick"))picked[e.target.dataset.u]=e.target.checked});
 
 /* documents (PDFs kept in this browser's IndexedDB) */
@@ -485,7 +497,7 @@ $("icsForm").addEventListener("submit",function(e){
   e.preventDefault();var f=$("icsForm");
   var sel=items.filter(function(i){return picked[i.uid]});
   sel.forEach(function(i){i.icsno=f.icsno.value.trim();i.rb=f.rbName.value.trim();i.rbpos=f.rbPos.value.trim()});save();render();
-  var rows=sel.map(function(i){return"<tr><td class='c'>"+esc(i.qty)+"</td><td class='c'>"+esc(i.unit)+"</td><td>"+esc(i.pn)+"</td><td>"+esc(i.serial)+"</td><td>"+peso(i.cost)+"</td><td>"+peso(i.qty*i.cost)+"</td><td>"+esc(i.desc)+"</td><td></td><td>"+esc(i.life)+"</td></tr>"}).join("");
+  var rows=sel.map(function(i){return"<tr><td class='c'>"+esc(i.qty)+"</td><td class='c'>"+esc(i.unit)+"</td><td>"+esc(i.pn)+"</td><td>"+esc(i.serial)+"</td><td>"+peso(i.cost)+"</td><td>"+peso(i.qty*i.cost)+"</td><td>"+esc(i.desc)+"</td><td>"+esc(i.invno||"")+"</td><td>"+esc(i.life)+"</td></tr>"}).join("");
   for(var k=sel.length;k<8;k++)rows+="<tr>"+"<td>&nbsp;</td>".repeat(9)+"</tr>";
   $("ics").innerHTML="<div>Appendix 59</div><div class='c hd'><img src='"+document.querySelector(".logo").src+"' alt='' style='height:70px'><br>DEPARTMENT OF EDUCATION<br>MIMAROPA REGION<br>SCHOOLS DIVISION OF ROMBLON<br>ROMBLON, ROMBLON<br><br><b>INVENTORY CUSTODIAN SLIP</b></div>"+
   "<table style='border:0'><tr><td style='border:0'>Entity Name: <b>"+esc(f.entity.value)+"</b></td><td style='border:0'>Fund Cluster: "+esc(f.fund.value)+"</td></tr><tr><td style='border:0'></td><td style='border:0'>ICS No.: "+esc(f.icsno.value)+"</td></tr></table>"+
@@ -496,7 +508,7 @@ $("icsForm").addEventListener("submit",function(e){
 });
 
 /* CSV */
-var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos","pmode"];
+var HEAD=["pn","date","desc","grp","sub","gl","loc","off","qty","unit","cost","serial","life","cond","fmt","icsno","rb","rbpos","pmode","invno","imode"];
 function cell(v){v=String(v==null?"":v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 $("export").onclick=function(){
   var csv=[HEAD.join(",")].concat(items.map(function(i){return HEAD.map(function(h){return cell(i[h])}).join(",")})).join("\n");
