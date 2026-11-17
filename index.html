@@ -151,6 +151,15 @@ footer{margin-top:.8rem}
 .invt td.act button{padding:.2rem .45rem;min-height:1.8rem;font-size:.82rem}
 .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .nw{white-space:nowrap}
+.invt{min-width:1000px;font-size:.82rem}
+.invt td:nth-child(3){min-width:130px}.invt td:nth-child(4){min-width:150px;max-width:200px}.invt td:nth-child(9){min-width:140px;max-width:190px}
+.invt td.act,.invt th:last-child{position:sticky;right:0;background:var(--panel);box-shadow:-6px 0 8px -6px rgba(0,0,0,.25);z-index:1}
+.invt td.act{padding:.2rem .4rem}
+.ab{display:grid;grid-template-columns:repeat(2,auto);gap:.2rem;justify-content:end}
+.invt td.act button{padding:.15rem .4rem;min-height:1.6rem;font-size:.78rem}
+button.alert{display:block;width:100%;text-align:left;min-height:0;font-weight:400;border:1px solid var(--line);border-left:4px solid var(--bad);cursor:pointer}
+button.alert.warn{border-left-color:var(--tag)}
+button.alert:hover{border-color:var(--ink);border-left-width:4px}
 </style>
 </head>
 <body>
@@ -245,7 +254,7 @@ footer{margin-top:.8rem}
     <label>Item description<input id="fDesc" type="search" placeholder="Name, brand, or model"></label>
     <label>Property no.<input id="fPn" type="search" placeholder="e.g. 2025-05"></label>
     <label>ICS no.<input id="fIcs" type="search" placeholder="e.g. 2025-001"></label>
-    <label>Inventory item no.<input id="fInv" type="search" placeholder="e.g. 0001"></label>
+    <label>Inventory item no.<input id="fInv" type="search" placeholder="e.g. 2025-09"></label>
     <label>Received by<input id="fRb" type="search" placeholder="Name or position"></label>
     <label>Location<input id="fLoc" type="search" placeholder="Room or office"></label>
     <label>Account group<select id="fGrp"><option value="">All account groups</option><option value="04">04 Inventories (below ₱50,000)</option><option value="06">06 Property, Plant and Equipment (₱50,000 and above)</option></select></label>
@@ -310,10 +319,10 @@ footer{margin-top:.8rem}
       <label class="s2">Received by (position / office)<input name="rbpos" maxlength="60" placeholder="Optional"></label>
 
       <label>Inventory item no.
-        <select name="imode"><option value="auto">Generate automatically</option><option value="manual">Type it myself</option><option value="none">Leave blank</option></select>
+        <select name="imode"><option value="auto">Generate automatically (YYYY-MM-NN)</option><option value="manual">Type it myself</option><option value="none">Leave blank</option></select>
       </label>
       <label>Estimated useful life<input name="life" placeholder="e.g. 5 years" maxlength="30"></label>
-      <label id="iWrap" class="s2" hidden>Your inventory item no.<input name="invman" maxlength="30" placeholder="e.g. 0001"></label>
+      <label id="iWrap" class="s2" hidden>Your inventory item no.<input name="invman" maxlength="30" placeholder="e.g. 2025-09-01"></label>
 
       <div class="preview s4"><div>Property number<br><b id="pv">-</b></div><div>Inventory item no.<br><b id="pvi">-</b></div></div>
     </div>
@@ -450,7 +459,7 @@ function render(){
     '<td><div class="clamp2">'+esc(i.loc)+' <span class="sub">('+esc(i.off)+')</span></div></td>'+
     '<td><div class="nw">'+esc(i.icsno||"")+'</div>'+(i.rb?'<div class="sub clamp2" title="'+esc(i.rb+(i.rbpos?', '+i.rbpos:''))+'">'+esc(i.rb)+(i.rbpos?', '+esc(i.rbpos):'')+'</div>':'')+'</td>'+
     '<td class="cond '+esc(i.cond).replace(" ","-")+'">'+esc(i.cond)+'</td>'+
-    '<td class="act"><button data-f="'+esc(i.uid)+'">Files'+((i.files||[]).length?' ('+i.files.length+')':'')+'</button> <button data-s="'+esc(i.uid)+'">Sticker</button> <button data-e="'+esc(i.pn)+'">Edit</button> <button class="danger" data-d="'+esc(i.pn)+'">Delete</button></td></tr>';
+    '<td class="act"><div class="ab"><button data-f="'+esc(i.uid)+'">Files'+((i.files||[]).length?' ('+i.files.length+')':'')+'</button> <button data-s="'+esc(i.uid)+'">Sticker</button> <button data-e="'+esc(i.pn)+'">Edit</button> <button class="danger" data-d="'+esc(i.pn)+'">Delete</button></div></td></tr>';
   }).join("");
   $("empty").hidden=list.length>0;
   $("sItems").textContent=items.length;
@@ -470,8 +479,12 @@ function readForm(){var f=F();return{date:f.date.value,desc:f.desc.value.trim(),
   loc:locName(),off:f.locsel.value,qty:Number(f.qty.value),unit:f.unit.value.trim(),cost:Number(f.cost.value),
   serial:f.serial.value.trim(),life:f.life.value.trim(),cond:f.cond.value,fmt:f.fmt.value,pmode:f.pmode.value,pnman:f.pnman.value.trim(),imode:f.imode.value,invman:f.invman.value.trim(),icsno:f.icsno.value.trim(),rb:f.rb.value.trim(),rbpos:f.rbpos.value.trim()}}
 function pnFinal(d){if(d.pmode==="manual")return d.pnman;return editing&&editing.pmode!=="manual"&&keyOf(editing)===keyOf(d)&&(d.fmt!=="full"||editing.pn.split("-")[1]===d.grp)?editing.pn:makePN(d,editing)}
-function makeInv(self){var mx=0;items.forEach(function(i){if(i!==self&&/^\d+$/.test(i.invno||"")){var n=parseInt(i.invno,10);if(n>mx)mx=n}});return p(mx+1,4)}
-function invFinal(d){if(d.imode==="manual")return d.invman;if(d.imode==="none")return"";return editing&&editing.imode==="auto"&&editing.invno?editing.invno:makeInv(editing)}
+function makeInv(d,self){if(!d.date)return"";var pre=d.date.slice(0,7)+"-",mx=0;
+  items.forEach(function(i){if(i!==self&&String(i.invno||"").indexOf(pre)===0){var n=parseInt(String(i.invno).slice(pre.length),10);if(n>mx)mx=n}});
+  return pre+p(mx+1,2)}
+function invFinal(d){if(d.imode==="manual")return d.invman;if(d.imode==="none")return"";if(!d.date)return"";
+  var pre=d.date.slice(0,7)+"-";
+  return editing&&editing.imode==="auto"&&editing.invno&&String(editing.invno).indexOf(pre)===0?editing.invno:makeInv(d,editing)}
 function iUI(){var m=F().imode.value==="manual";$("iWrap").hidden=!m;F().invman.required=m}
 var LOCS=[["01","District Office"],["02","Principal's Office"],["03","Admin Office"],["04","Finance Office"],["05","Classroom"],["06","ICT Laboratory"],["07","HE Room/TLE/TVL"],["08","Science Lab"],["09","School Library/Library Hub"],["10","School Canteen"],["11","School Clinic"],["12","DRRM Room"],["13","Faculty Room"],["14","Property and Supply Room"],["15","Guidance Office"],["16","Guard House"],["17","SBM Room/Office"],["18","Stage"],["19","AVR"],["20","PTA Building"],["21","Evacuation Center"],["22","Multipurpose Hall"],["23","Gymnasium"],["24","Stock Room"],["25","Dormitory/Hostel"],["26","Other Location"]];
 function locName(){var f=F(),c=f.locsel.value;if(c==="26")return f.locOther.value.trim()||"Other Location";var m=LOCS.find(function(l){return l[0]===c});return m?m[1]:""}
@@ -707,13 +720,19 @@ function dash(){
    '<div class="card"><h2>Units by location</h2>'+bars(top(tally(function(i){return i.loc},function(i){return i.qty}),8),num)+'</div>'+
    '<div class="card"><h2>Value purchased per year</h2>'+bars(yrs,peso)+'</div>'+
    '<div class="card"><h2>Needs attention</h2>'+
-     (repair.length?repair.map(function(i){return'<div class="alert"><b>'+esc(i.desc)+'</b> ('+esc(i.pn)+') is '+esc(i.cond.toLowerCase())+' at '+esc(i.loc)+'.</div>'}).join(""):'<p class="none">No items need repair.</p>')+
-     (noIcs.length?noIcs.map(function(i){return'<div class="alert warn"><b>'+esc(i.desc)+'</b> ('+esc(i.pn)+') has no ICS no. or received by yet.</div>'}).join(""):'<p class="none">Every semi-expendable item has an ICS no. and received by.</p>')+'</div>'+
+     (repair.length?repair.map(function(i){return'<button type="button" class="alert" data-fix="'+esc(i.uid)+'" data-fld="cond"><b>'+esc(i.desc)+'</b> ('+esc(i.pn)+') is '+esc(i.cond.toLowerCase())+' at '+esc(i.loc)+'. Click to edit.</button>'}).join(""):'<p class="none">No items need repair.</p>')+
+     (noIcs.length?noIcs.map(function(i){return'<button type="button" class="alert warn" data-fix="'+esc(i.uid)+'" data-fld="'+(i.icsno?"rb":"icsno")+'"><b>'+esc(i.desc)+'</b> ('+esc(i.pn)+') has no ICS no. or received by yet. Click to edit.</button>'}).join(""):'<p class="none">Every semi-expendable item has an ICS no. and received by.</p>')+'</div>'+
    '<div class="card"><h2>Recently purchased</h2>'+(recent.length?recent.map(function(i){return'<div class="brow" style="grid-template-columns:90px 1fr auto"><span>'+esc(i.date)+'</span><span>'+esc(i.desc)+'</span><b>'+peso(val(i))+'</b></div>'}).join(""):'<p class="none">No items yet.</p>')+'</div>'+
   '</div>';
   $("dash").innerHTML=h;
 }
 function tab(d){$("dash").hidden=!d;$("inv").hidden=d;$("tDash").setAttribute("aria-selected",d);$("tInv").setAttribute("aria-selected",!d);if(d)dash()}
+var fromDash=false;
+$("dash").onclick=function(e){var b=e.target.closest("button.alert");if(!b)return;
+  var it=items.find(function(i){return i.uid===b.dataset.fix});if(!it)return;
+  fromDash=true;tab(false);openForm(it);
+  setTimeout(function(){var el=F()[b.dataset.fld];if(el){el.focus();if(el.select)el.select()}},50)};
+$("dlg").addEventListener("close",function(){if(fromDash){fromDash=false;tab(true)}});
 $("tInv").onclick=function(){tab(false)};$("tDash").onclick=function(){tab(true)};
 
 /* misc */
