@@ -160,6 +160,15 @@ footer{margin-top:.8rem}
 button.alert{display:block;width:100%;text-align:left;min-height:0;font-weight:400;border:1px solid var(--line);border-left:4px solid var(--bad);cursor:pointer}
 button.alert.warn{border-left-color:var(--tag)}
 button.alert:hover{border-color:var(--ink);border-left-width:4px}
+#impDlg{width:min(1180px,97vw);max-height:94vh;overflow:auto;padding:.8rem 1rem}
+#impDlg h2{margin:0 0 .5rem;font-size:1.2rem}
+.ig{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.4rem .6rem;margin:.6rem 0}
+.ig label{margin:0;font-size:.82rem}.ig input,.ig select{min-height:2.1rem;padding:.3rem .45rem;margin-top:.15rem}
+.impt{min-width:1000px;font-size:.82rem}.impt td{padding:.2rem .3rem}
+.impt input,.impt select{width:100%;min-height:1.9rem;padding:.2rem .35rem;font-size:.82rem}
+.impt input[type=checkbox]{width:auto;min-height:0}
+#impPrev{max-height:240px;overflow:auto;border:1px solid var(--line);margin:.4rem 0}#impPrev canvas{max-width:100%;height:auto;display:block}
+#impRaw{max-height:160px;overflow:auto;background:var(--bg);padding:.5rem;font-size:.78rem;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -239,6 +248,7 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
     <input id="q" type="search" placeholder="Search by property no., description, or location" aria-label="Search">
     <button class="primary" id="add">Add item</button>
     <button id="ics">Print ICS for selected</button>
+    <button id="impBtn">Import from ICS file</button>
     <select id="fSort" aria-label="Sort items">
       <option value="new">Newest added first</option><option value="old">Oldest added first</option>
       <option value="dnew">Date purchased: newest first</option><option value="dold">Date purchased: oldest first</option>
@@ -355,6 +365,33 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
     <p id="pwMsg" role="alert" style="color:var(--bad);margin:0 0 .5rem"></p>
     <div class="btns"><button type="button" id="pwCancel">Cancel</button><button class="primary">Save password</button></div>
   </form>
+</dialog>
+
+<dialog id="impDlg">
+  <h2>Import from an ICS file</h2>
+  <div id="impStep1">
+    <p class="sub">Choose a PDF, or a photo or scan of an Inventory Custodian Slip. The file is read in your browser and the details are filled in for you to check. Nothing is saved until you click Add.</p>
+    <label>ICS file (PDF, JPG or PNG)<input type="file" id="impFile" accept="application/pdf,image/*"></label>
+    <label>Photo orientation (for photos and scans)<select id="impRot"><option value="0">Upright</option><option value="90">Rotated 90° clockwise</option><option value="180">Upside down</option><option value="270">Rotated 90° counter-clockwise</option></select></label>
+    <p id="impStatus" class="sub" role="status"></p>
+    <div class="btns"><button type="button" id="impCancel">Cancel</button><button type="button" class="primary" id="impRead">Read file</button></div>
+  </div>
+  <div id="impStep2" hidden>
+    <p class="sub">Check everything against the original. Fix anything that was read wrongly, untick rows you don't want, and choose the account for each row.</p>
+    <div id="impPrev"></div>
+    <details><summary>Text found in the file</summary><pre id="impRaw"></pre></details>
+    <div class="ig">
+      <label>Date purchased (required)<input type="date" id="impDate"></label>
+      <label>Location / office (required)<select id="impLoc"></select></label>
+      <label id="impLocWrap" hidden>Specify the location<input id="impLocOther" maxlength="60"></label>
+      <label>ICS no.<input id="impIcs" maxlength="30"></label>
+      <label>Received by (name)<input id="impRb" maxlength="60"></label>
+      <label>Received by (position / office)<input id="impRbp" maxlength="60"></label>
+    </div>
+    <div class="tablewrap"><table class="impt"><thead><tr><th style="width:2rem"></th><th style="width:4rem">Qty</th><th style="width:4.5rem">Unit</th><th style="min-width:200px">Description</th><th style="width:6.5rem">Unit cost</th><th style="width:7rem">Serial no.</th><th style="width:10rem">Property no.</th><th style="width:7.5rem">Inventory item no.</th><th style="width:5.5rem">Useful life</th><th style="width:13rem">Account</th></tr></thead><tbody id="impRows"></tbody></table></div>
+    <p class="sub">Leave Property no. or Inventory item no. blank to have the site generate them. Items are added with condition Good.</p>
+    <div class="btns"><button type="button" id="impRow">Add blank row</button><button type="button" id="impBack">Back</button><button type="button" id="impCancel2">Cancel</button><button type="button" class="primary" id="impAdd">Add selected items to inventory</button></div>
+  </div>
 </dialog>
 
 <dialog id="sDlg">
@@ -643,6 +680,123 @@ $("sList").onclick=function(e){var b=e.target.closest("button");if(!b)return;
 $("sPrint").onclick=function(){
   $("stk").innerHTML=stickerList.map(function(it){return'<img src="'+stickerImgs[it.uid]+'" alt="">'}).join("");
   $("sDlg").close();setTimeout(function(){document.body.className="p-stk";window.print();document.body.className=""},150)};
+
+/* import from an ICS file */
+var PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",PDFJSW="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+    TESS="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js",scriptP={},impRows=[];
+function loadScript(src){return scriptP[src]||(scriptP[src]=new Promise(function(res,rej){var el=document.createElement("script");el.src=src;el.onload=res;el.onerror=function(){delete scriptP[src];rej(new Error("could not load a reading tool from the internet"))};document.head.appendChild(el)}))}
+function st(t){$("impStatus").textContent=t}
+function rotCanvas(src,deg){var sw=src.width,sh=src.height,sp=deg===90||deg===270,c=document.createElement("canvas");c.width=sp?sh:sw;c.height=sp?sw:sh;
+  var x=c.getContext("2d");x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(src,-sw/2,-sh/2);return c}
+function imgToCanvas(file){return new Promise(function(res,rej){var img=new Image(),u=URL.createObjectURL(file);
+  img.onload=function(){var k=Math.min(1,2400/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c)};
+  img.onerror=function(){rej(new Error("this image could not be opened"))};img.src=u})}
+function ocr(cv,rot){var c=rot?rotCanvas(cv,rot):cv;st("Loading the text reader (the first time can take a minute)…");
+  return loadScript(TESS).then(function(){return Tesseract.recognize(c,"eng",{logger:function(m){if(m.status==="recognizing text")st("Reading text… "+Math.round(m.progress*100)+"%")}})}).then(function(r){
+    var d=r.data,ws=(d.words||[]).filter(function(w){return w.text.trim()&&w.confidence>20}).map(function(w){return{t:w.text.trim(),x0:w.bbox.x0,x1:w.bbox.x1,y:(w.bbox.y0+w.bbox.y1)/2,h:w.bbox.y1-w.bbox.y0}});
+    return{words:ws,w:c.width,canvas:c,text:d.text||""}})}
+function readIcs(file,rot){
+  if(file.type==="application/pdf"||/\.pdf$/i.test(file.name)){
+    st("Loading the PDF reader…");
+    return loadScript(PDFJS).then(function(){pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJSW;return file.arrayBuffer()})
+    .then(function(buf){return pdfjsLib.getDocument({data:buf}).promise}).then(function(doc){
+      var out=[],n=Math.min(doc.numPages,3),chain=Promise.resolve();
+      for(var p=1;p<=n;p++)(function(p){chain=chain.then(function(){st("Reading page "+p+" of "+n+"…");return doc.getPage(p)}).then(function(page){
+        var vp=page.getViewport({scale:1.5});
+        return page.getTextContent().then(function(tc){
+          var ws=tc.items.filter(function(it){return it.str&&it.str.trim()}).map(function(it){var t=pdfjsLib.Util.transform(vp.transform,it.transform);
+            return{t:it.str.trim(),x0:t[4],x1:t[4]+it.width*1.5,y:t[5],h:Math.abs(it.height*1.5)||10}});
+          var cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
+          return page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise.then(function(){
+            if(ws.length>15){out.push({words:ws,w:vp.width,canvas:cv,text:""});return}
+            return ocr(cv,rot).then(function(r){out.push(r)})})})})})(p);
+      return chain.then(function(){return out})})}
+  return imgToCanvas(file).then(function(cv){return ocr(cv,rot)}).then(function(r){return[r]})}
+
+var MON=/^[₱P]?[\d.,]*\d[.,]\d{2}$/,PROP=/^\d{4}-\d{2}-\d{2}-\d{4}-\d{2}$|^\d{4}-\d{2}-\d{2}-\d{2}$/;
+function money(t){return Number(t.replace(/[^\d]/g,""))/100}
+function toLines(pg){
+  if(!pg.words.length)return pg.text.split("\n").filter(function(x){return x.trim()}).map(function(t){return{text:t,words:[{t:t,x0:0,x1:0}],pw:pg.w}});
+  var hs=pg.words.map(function(w){return w.h}).sort(function(a,b){return a-b}),tol=(hs[Math.floor(hs.length/2)]||10)*0.6,lines=[];
+  pg.words.slice().sort(function(a,b){return a.y-b.y}).forEach(function(w){var L=lines[lines.length-1];
+    if(L&&Math.abs(w.y-L.y)<=tol){L.words.push(w);L.y=(L.y*(L.words.length-1)+w.y)/L.words.length}else lines.push({y:w.y,words:[w],pw:pg.w})});
+  lines.forEach(function(L){L.words.sort(function(a,b){return a.x0-b.x0});L.text=L.words.map(function(w){return w.t}).join(" ")});return lines}
+function rowFrom(t){
+  var qty=+t[0],unit=t[1],rest=t.slice(2),mi=[];rest.forEach(function(x,i){if(MON.test(x))mi.push(i)});
+  var before=rest.slice(0,mi[0]),pi=before.findIndex(function(x){return PROP.test(x)}),pn=pi>-1?before.splice(pi,1)[0]:"",serial=before.join(" ");
+  var cost=money(rest[mi[0]]),endM=mi.length>1?mi[1]:mi[0],after=rest.slice(endM+1).join(" "),inv="",life="";
+  var im=after.match(/\b\d{4}-\d{2}-\d{2}\b/);if(im){inv=im[0];after=after.replace(im[0],"")}
+  var lm=after.match(/\b\d+\s*(?:years?|yrs?|months?|mos?)\b/i);if(lm){life=lm[0];after=after.replace(lm[0],"")}
+  return{inc:true,qty:qty,unit:unit,desc:after.replace(/\s+/g," ").trim(),cost:cost,serial:serial,pn:pn,inv:inv,life:life,acc:""}}
+function splitHalf(L){var w=L.words;if(w.length<2)return[L.text,""];var best=0,bi=-1;
+  for(var i=1;i<w.length;i++){var g=w[i].x0-w[i-1].x1;if(g>best){best=g;bi=i}}
+  if(bi>0&&best>(L.pw||1000)*0.06)return[w.slice(0,bi).map(function(x){return x.t}).join(" "),w.slice(bi).map(function(x){return x.t}).join(" ")];return[L.text,""]}
+function parseIcs(pages){
+  var rows=[],raw=[],names=["",""],pos=["",""],ics="",last=null,stop=false;
+  pages.forEach(function(pg){var lines=toLines(pg);raw.push(lines.map(function(l){return l.text}).join("\n"));
+    lines.forEach(function(L,i){
+      var m=L.text.match(/ICS\s*No\.?\s*:?\s*([A-Za-z0-9\-\/]*\d[A-Za-z0-9\-\/]*)/i);if(m&&!ics)ics=m[1];
+      if(stop&&!/signature\s*over/i.test(L.text)&&!/position/i.test(L.text))return;
+      if(/^received/i.test(L.text)){stop=true;return}
+      if(/signature\s*over/i.test(L.text)&&!names[0]&&!names[1]){var pl=lines[i-1];if(pl&&!/received|signature|position|^date/i.test(pl.text))names=splitHalf(pl)}
+      if(/position\s*\/?\s*office/i.test(L.text)&&!pos[0]&&!pos[1]){var q=lines[i-1];if(q&&!/received|signature|position|^date/i.test(q.text))pos=splitHalf(q)}
+      if(stop)return;
+      var t=L.text.split(/\s+/).filter(Boolean);
+      if(t.length>=4&&/^\d{1,4}$/.test(t[0])&&/^[A-Za-z.]{1,8}$/.test(t[1])&&t.some(function(x){return MON.test(x)})){last=rowFrom(t);rows.push(last);return}
+      if(last&&!t.some(function(x){return MON.test(x)})&&!/description|unit cost|total cost|estimated|inventory|serial|^qty|amount|property/i.test(L.text)&&L.text.length<80)last.desc=(last.desc+" "+L.text).trim()})});
+  return{rows:rows,ics:ics,rb:names[1]||names[0],rbpos:pos[1]||pos[0],raw:raw.join("\n\n")}}
+
+var KIND={ict:/laptop|computer|printer|tablet|monitor|projector|router|cpu|\bups\b|keyboard|modem|tv|television/i,furn:/chair|table|desk|shelf|cabinet|rack|bench|armchair|bed|locker/i,book:/book|reader|textbook/i,office:/fan|aircon|air con|photocopier|shredder|calculator|cabinet/i};
+var KMAP={"04":{ict:["05","03"],furn:["06","01"],book:["06","02"],office:["05","02"]},"06":{ict:["05","03"],furn:["07","01"],book:["07","02"],office:["05","02"]}};
+function grpOf(r){return Number(r.cost)>=50000?"06":"04"}
+function guessAcc(r){var g=grpOf(r),p=String(r.pn||"").split("-"),subs=ACC[g].subs,d=r.desc||"";
+  if(p.length===5){var c=[];Object.keys(subs).forEach(function(sc){if(subs[sc].gl[p[2]])c.push(sc)});
+    if(c.length===1)return g+"|"+c[0]+"|"+p[2];
+    if(c.length>1){var bk=KIND.book.test(d);var pick=c.find(function(sc){return/book/i.test(subs[sc].gl[p[2]])===bk})||c[0];return g+"|"+pick+"|"+p[2]}}
+  for(var k in KIND)if(KIND[k].test(d)){var m=KMAP[g][k];if(subs[m[0]]&&subs[m[0]].gl[m[1]])return g+"|"+m[0]+"|"+m[1]}
+  return""}
+function accOpts(g,sel){var h='<option value="">Choose account…</option>';
+  Object.keys(ACC[g].subs).forEach(function(sc){var S=ACC[g].subs[sc];h+='<optgroup label="'+g+"-"+sc+" "+esc(S.name)+'">'+Object.keys(S.gl).map(function(k){var v=g+"|"+sc+"|"+k;return'<option value="'+v+'"'+(v===sel?" selected":"")+">"+k+" "+esc(S.gl[k])+"</option>"}).join("")+"</optgroup>"});return h}
+function impRender(){
+  $("impRows").innerHTML=impRows.map(function(r,i){var a=function(k,w,ty){return'<input data-i="'+i+'" data-k="'+k+'" '+(ty?'type="'+ty+'" ':"")+'value="'+esc(r[k])+'">'};
+    return"<tr><td><input type=\"checkbox\" data-i=\""+i+"\" data-k=\"inc\""+(r.inc?" checked":"")+"></td><td>"+a("qty",0,"number")+"</td><td>"+a("unit")+"</td><td>"+a("desc")+"</td><td>"+a("cost",0,"number")+"</td><td>"+a("serial")+"</td><td>"+a("pn")+"</td><td>"+a("inv")+"</td><td>"+a("life")+"</td><td><select data-i=\""+i+"\" data-k=\"acc\">"+accOpts(grpOf(r),r.acc)+"</select></td></tr>"}).join("")}
+function impSync(){document.querySelectorAll("#impRows [data-i]").forEach(function(el){var r=impRows[+el.dataset.i];r[el.dataset.k]=el.type==="checkbox"?el.checked:el.value})}
+function showReview(pages){
+  var res=parseIcs(pages);impRows=res.rows;impRows.forEach(function(r){r.acc=guessAcc(r)});
+  $("impPrev").innerHTML="";var pv=pages[0]&&pages[0].canvas;if(pv)$("impPrev").appendChild(pv);
+  $("impRaw").textContent=res.raw||"(no text found)";
+  $("impIcs").value=res.ics;$("impRb").value=res.rb;$("impRbp").value=res.rbpos;$("impLoc").value="";$("impLocWrap").hidden=true;
+  var m=impRows[0]&&impRows[0].inv.match(/^(\d{4})-(\d{2})-/);$("impDate").value=m?m[1]+"-"+m[2]+"-01":"";
+  impRender();
+  $("impStep1").hidden=true;$("impStep2").hidden=false;
+  if(!impRows.length)alert("No item rows were found. Open 'Text found in the file' to see what was read. Try the orientation setting or a clearer scan, or use Add blank row to type the items in.")}
+$("impLoc").innerHTML='<option value="">Choose location…</option>'+LOCS.map(function(l){return'<option value="'+l[0]+'">'+l[0]+" "+esc(l[1])+"</option>"}).join("");
+$("impLoc").onchange=function(){$("impLocWrap").hidden=$("impLoc").value!=="26"};
+$("impRows").addEventListener("change",function(e){var el=e.target;if(!el.dataset.k)return;impSync();
+  if(el.dataset.k==="cost"||el.dataset.k==="desc"){var r=impRows[+el.dataset.i];if(!r.acc||el.dataset.k==="cost")r.acc=guessAcc(r);impRender()}});
+$("impBtn").onclick=function(){$("impStep1").hidden=false;$("impStep2").hidden=true;st("");$("impFile").value="";$("impDlg").showModal()};
+$("impCancel").onclick=$("impCancel2").onclick=function(){$("impDlg").close()};
+$("impBack").onclick=function(){$("impStep1").hidden=false;$("impStep2").hidden=true;st("")};
+$("impRow").onclick=function(){impSync();impRows.push({inc:true,qty:1,unit:"pc",desc:"",cost:0,serial:"",pn:"",inv:"",life:"",acc:""});impRender()};
+$("impRead").onclick=function(){var f=$("impFile").files[0];if(!f){st("Choose a file first.");return}
+  $("impRead").disabled=true;
+  readIcs(f,Number($("impRot").value)).then(showReview).catch(function(e){st("Could not read this file: "+e.message+". Reading needs an internet connection.")}).then(function(){$("impRead").disabled=false})};
+$("impAdd").onclick=function(){impSync();
+  var date=$("impDate").value,code=$("impLoc").value,pick=impRows.filter(function(r){return r.inc}),errs=[];
+  if(!date)errs.push("the date purchased");if(!code)errs.push("the location");
+  if(!pick.length){alert("Tick at least one row to add.");return}
+  impRows.forEach(function(r,i){if(r.inc){if(!String(r.desc).trim())errs.push("the description in row "+(i+1));if(!r.acc)errs.push("the account in row "+(i+1))}});
+  if(errs.length){alert("Please complete: "+errs.slice(0,5).join(", ")+".");return}
+  var dup=pick.filter(function(r){return r.pn.trim()&&items.some(function(i){return i.pn===r.pn.trim()})}).length;
+  if(dup&&!confirm(dup+" row(s) have a property number that already exists in the inventory. Add anyway?"))return;
+  var loc=code==="26"?($("impLocOther").value.trim()||"Other Location"):LOCS.find(function(l){return l[0]===code})[1];
+  pick.forEach(function(r){var pr=r.acc.split("|"),d={date:date,desc:String(r.desc).trim(),details:"",grp:grpOf(r),sub:pr[1],gl:pr[2],loc:loc,off:code,
+    qty:Number(r.qty)||1,unit:String(r.unit).trim()||"pc",cost:Number(r.cost)||0,serial:String(r.serial).trim(),life:String(r.life).trim(),cond:"Good",fmt:"full",
+    pmode:String(r.pn).trim()?"manual":"auto",imode:String(r.inv).trim()?"manual":"auto",icsno:$("impIcs").value.trim(),rb:$("impRb").value.trim(),rbpos:$("impRbp").value.trim()};
+    d.pn=d.pmode==="manual"?String(r.pn).trim():makePN(d,null);d.invno=d.imode==="manual"?String(r.inv).trim():makeInv(d,null);
+    d.uid=uid();d.added=Date.now();items.push(d)});
+  save();render();$("impDlg").close();alert(pick.length+" item(s) added. Please check them in the table.")};
 
 /* ICS */
 $("ics").onclick=function(){
