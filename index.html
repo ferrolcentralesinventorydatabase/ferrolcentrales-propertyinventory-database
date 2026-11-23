@@ -199,6 +199,11 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
 }
 #stDlg{width:min(760px,96vw);padding:.8rem 1rem}
 .stt{min-width:0}.stt td{padding:.2rem .3rem}.stt input{width:100%;min-height:2rem;padding:.2rem .4rem}
+.listhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.4rem .8rem;margin:.3rem 0 .5rem}
+.listhead #count{margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:.4rem}
+.actions button{min-height:2.2rem;padding:.3rem .65rem}
+@media(max-width:700px){.actions{width:100%}.actions button{flex:1 1 45%}.actions #add{flex:1 1 100%}}
 </style>
 </head>
 <body>
@@ -276,18 +281,10 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
   <div id="inv">
   <div class="bar">
     <input id="q" type="search" placeholder="Search by property no., description, or location" aria-label="Search">
-    <button class="primary" id="add">Add item</button>
-    <button id="ics">Print ICS for selected</button>
-    <button id="impBtn">Import from ICS file</button>
     <select id="fSort" aria-label="Sort items">
       <option value="new">Newest added first</option><option value="old">Oldest added first</option>
       <option value="dnew">Date purchased: newest first</option><option value="dold">Date purchased: oldest first</option>
     </select>
-    <button id="fixPn" hidden></button>
-    <button id="stkBtn">Property stickers for selected</button>
-    <button id="export">Export CSV</button>
-    <button id="import">Import CSV</button>
-    <input type="file" id="file" accept=".csv,text/csv" hidden>
   </div>
 
   <button id="fToggle" class="mobonly" type="button" aria-expanded="false">Show filters</button>
@@ -306,7 +303,20 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
     <label>Condition<select id="fCond"><option value="">All conditions</option><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
     <button id="fClear" type="button">Clear filters</button>
   </div>
-  <p class="sub" id="count" aria-live="polite"></p>
+
+  <div class="listhead">
+    <p class="sub" id="count" aria-live="polite"></p>
+    <div class="actions">
+      <button class="primary" id="add">Add item</button>
+      <button id="ics">Print ICS for selected</button>
+      <button id="impBtn">Import from ICS file</button>
+      <button id="stkBtn">Property stickers for selected</button>
+      <button id="fixPn" hidden></button>
+      <button id="export">Export CSV</button>
+      <button id="import">Import CSV</button>
+      <input type="file" id="file" accept=".csv,text/csv" hidden>
+    </div>
+  </div>
   <div class="card" id="sum" hidden style="margin-bottom:.5rem"></div>
 
   <div class="tablewrap invwrap">
