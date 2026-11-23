@@ -119,8 +119,8 @@ header{flex-wrap:wrap}
 }
 #ics .c{text-align:center}#ics .hd{margin:.4rem 0 1rem}
 #ics .sig{display:grid;grid-template-columns:1fr 1fr;border:1px solid #000;margin-top:-1px}
-#ics .sig div{padding:6px 10px;min-height:120px}
-#ics .line{border-bottom:1px solid #000;margin:30px 20px 2px}
+#ics .sig>div{padding:6px 10px}#ics .sig{break-inside:avoid}
+#ics .line{border-bottom:1px solid #000;margin:26px 20px 2px;min-height:1em}
 /* compact spacing */
 .wrap{padding:.9rem .8rem 2.5rem}
 header{margin-bottom:.8rem;gap:.8rem}
@@ -714,6 +714,10 @@ $("fList").onclick=function(e){
   });
 };
 
+/* printing */
+function printMode(cls){document.body.className=cls;
+  var done=function(){document.body.className="";window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);setTimeout(done,180000);window.print()}
 /* property stickers */
 var C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"],stickerImgs={},stickerList=[];
 function code128(text){
@@ -764,7 +768,7 @@ $("sList").onclick=function(e){var b=e.target.closest("button");if(!b)return;
   a.href=stickerImgs[it.uid];a.download="sticker-"+it.pn.replace(/[^A-Za-z0-9_-]/g,"_")+".png";document.body.appendChild(a);a.click();a.remove()};
 $("sPrint").onclick=function(){
   $("stk").innerHTML=stickerList.map(function(it){return'<img src="'+stickerImgs[it.uid]+'" alt="">'}).join("");
-  $("sDlg").close();setTimeout(function(){document.body.className="p-stk";window.print();document.body.className=""},150)};
+  $("sDlg").close();setTimeout(function(){printMode("p-stk")},150)};
 
 /* import from an ICS file */
 var PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",PDFJSW="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
@@ -939,7 +943,8 @@ $("rstFile").onchange=function(e){var f=e.target.files[0];e.target.value="";if(!
 var signers={prep:["JOHN ALBERT M. TAN","Administrative Officer II"],noted:["ARCHIE F. GALICIA","Principal I"]};
 try{var sg=JSON.parse(localStorage.getItem("fces.signers")||"null");if(sg&&sg.prep&&sg.noted)signers=sg}catch(e){}
 function perMatches(){var q=$("perName").value.trim().toLowerCase();if(!q)return[];
-  return items.filter(function(i){return i.rb&&String(i.rb).toLowerCase().indexOf(q)>-1}).sort(function(a,b){return a.pn<b.pn?-1:1})}
+  var m=items.filter(function(i){return i.rb&&String(i.rb).toLowerCase().indexOf(q)>-1}),ex=m.filter(function(i){return String(i.rb).trim().toLowerCase()===q});
+  return(ex.length?ex:m).sort(function(a,b){return a.pn<b.pn?-1:1})}
 function perRender(){
   var m=perMatches(),names=uniq(m.map(function(i){return i.rb})),one=names.length===1,q=$("perName").value.trim();
   $("perMsg").textContent=!q?"Type a name to find the items received by that person.":!m.length?"No items found for that name.":one?m.length+" item(s) received by "+names[0]+". Untick any you don't want on the slip.":"More than one person matches: "+names.join("; ")+". Keep typing the full name.";
@@ -967,7 +972,7 @@ $("perPrint").onclick=function(){
   "<div style='border-left:1px solid #000'>Received by:<div class='line c'><b>"+esc(nm)+"</b></div><div class='c'>Signature Over Printed Name</div><div class='line c'>"+esc(pos)+"</div><div class='c'>Position/Office</div><div class='line'></div><div class='c'>Date</div></div></div>"+
   "<div class='pn'>Prepared by:<div class='nm'><b>"+esc(signers.prep[0])+"</b></div><div>"+esc(signers.prep[1])+"</div></div>"+
   "<div class='pn'>Noted by:<div class='nm'><b>"+esc(signers.noted[0])+"</b></div><div>"+esc(signers.noted[1])+"</div></div>";
-  $("perDlg").close();setTimeout(function(){document.body.className="p-ics";window.print();document.body.className=""},100)};
+  $("perDlg").close();setTimeout(function(){printMode("p-ics")},100)};
 
 /* ICS */
 $("ics").onclick=function(){
@@ -991,7 +996,7 @@ $("icsForm").addEventListener("submit",function(e){
   "<table><thead><tr><th rowspan=2>Qty</th><th rowspan=2>Unit</th><th rowspan=2>Semi-Expendable Property #</th><th rowspan=2>Serial #</th><th colspan=2>Amount</th><th rowspan=2>Description</th><th rowspan=2>Inventory Item No.</th><th rowspan=2>Estimated Useful Life</th></tr><tr><th>Unit Cost</th><th>Total Cost</th></tr></thead><tbody>"+rows+"</tbody></table>"+
   "<div class='sig'><div>Received from:<div class='line c'><b>"+esc(f.rfName.value)+"</b></div><div class='c'>Signature Over Printed Name</div><div class='line c'>"+esc(f.rfPos.value)+"</div><div class='c'>Position/Office</div><div class='line'></div><div class='c'>Date</div></div>"+
   "<div style='border-left:1px solid #000'>Received by:<div class='line c'><b>"+esc(f.rbName.value)+"</b></div><div class='c'>Signature Over Printed Name</div><div class='line c'>"+esc(f.rbPos.value)+"</div><div class='c'>Position/Office</div><div class='line'></div><div class='c'>Date</div></div></div>";
-  $("icsDlg").close();setTimeout(function(){document.body.className="p-ics";window.print();document.body.className=""},100);
+  $("icsDlg").close();setTimeout(function(){printMode("p-ics")},100);
 });
 
 /* CSV */
