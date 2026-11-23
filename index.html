@@ -214,6 +214,10 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
 #form .btns .preview b{font-size:.95rem}
 #form .bb{display:flex;gap:.5rem;margin-left:auto}
 @media(max-width:700px){#form .btns{margin:.5rem -.7rem -.7rem;padding:.5rem .7rem}#form .bb{width:100%}#form .bb button{flex:1}}
+#perDlg{width:min(900px,97vw);max-height:94vh;overflow:auto;padding:.8rem 1rem}
+#perDlg h2{margin:0 0 .4rem;font-size:1.2rem}
+.pbar{position:sticky;bottom:0;background:var(--panel);margin:.4rem -1rem -.8rem;padding:.5rem 1rem;border-top:1px solid var(--line)}
+#ics tr{break-inside:avoid}#ics .pn{break-inside:avoid;margin-top:10px}#ics .nm{margin-top:26px}
 </style>
 </head>
 <body>
@@ -320,6 +324,7 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
       <button class="primary" id="add">Add item</button>
       <button id="ics">Print ICS for selected</button>
       <button id="impBtn">Import from ICS file</button>
+      <button id="perBtn">Print items by personnel</button>
       <button id="stkBtn">Property stickers for selected</button>
       <button id="fixPn" hidden></button>
       <button id="export">Export CSV</button>
@@ -445,6 +450,24 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
     <p class="sub">Leave Property no. or Inventory item no. blank to have the site generate them. Items are added with condition Good.</p>
     <div class="btns"><button type="button" id="impRow">Add blank row</button><button type="button" id="impBack">Back</button><button type="button" id="impCancel2">Cancel</button><button type="button" class="primary" id="impAdd">Add selected items to inventory</button></div>
   </div>
+</dialog>
+
+<dialog id="perDlg">
+  <h2>Print items by personnel</h2>
+  <label>Name of personnel<input id="perName" list="staffList" autocomplete="off" placeholder="Type the first letters of the name"></label>
+  <p id="perMsg" class="sub" role="status"></p>
+  <div class="tablewrap" style="max-height:34vh;overflow:auto"><table class="stt"><thead><tr><th></th><th>Property no.</th><th>Description</th><th class="num">Qty</th><th class="num">Total</th><th>ICS no.</th></tr></thead><tbody id="perRows"></tbody></table></div>
+  <div class="ig">
+    <label>Position / office<input id="perPos" maxlength="60"></label>
+    <label>ICS no. on the slip<input id="perIcs" maxlength="80"></label>
+    <label>Entity name<input id="perEntity" maxlength="80"></label>
+    <label>Fund cluster<input id="perFund" maxlength="40"></label>
+    <label>Prepared by (name)<input id="perPrep" maxlength="60"></label>
+    <label>Prepared by (position)<input id="perPrepPos" maxlength="60"></label>
+    <label>Noted by (name)<input id="perNoted" maxlength="60"></label>
+    <label>Noted by (position)<input id="perNotedPos" maxlength="60"></label>
+  </div>
+  <div class="btns pbar"><button type="button" id="perCancel">Cancel</button><button type="button" class="primary" id="perPrint" disabled>Print slip</button></div>
 </dialog>
 
 <datalist id="staffList"></datalist><datalist id="descList"></datalist><datalist id="detList"></datalist><datalist id="unitList"></datalist><datalist id="lifeList"></datalist><datalist id="icsList"></datalist>
@@ -911,6 +934,40 @@ $("rstFile").onchange=function(e){var f=e.target.files[0];e.target.value="";if(!
     Promise.all(ks.map(function(id){return fetch(d.files[id]).then(function(x){return x.blob()}).then(function(b){return fput(id,b)})})).then(function(){
       items=d.items;if(Array.isArray(d.staff)){staff=d.staff;try{localStorage.setItem("fces.staff",JSON.stringify(staff))}catch(x){}staffOpts()}save();render();alert("Backup restored.")}).catch(function(){alert("The backup could not be restored. Check that the browser allows site storage.")})};
   r.readAsText(f)};
+
+/* print items by personnel */
+var signers={prep:["JOHN ALBERT M. TAN","Administrative Officer II"],noted:["ARCHIE F. GALICIA","Principal I"]};
+try{var sg=JSON.parse(localStorage.getItem("fces.signers")||"null");if(sg&&sg.prep&&sg.noted)signers=sg}catch(e){}
+function perMatches(){var q=$("perName").value.trim().toLowerCase();if(!q)return[];
+  return items.filter(function(i){return i.rb&&String(i.rb).toLowerCase().indexOf(q)>-1}).sort(function(a,b){return a.pn<b.pn?-1:1})}
+function perRender(){
+  var m=perMatches(),names=uniq(m.map(function(i){return i.rb})),one=names.length===1,q=$("perName").value.trim();
+  $("perMsg").textContent=!q?"Type a name to find the items received by that person.":!m.length?"No items found for that name.":one?m.length+" item(s) received by "+names[0]+". Untick any you don't want on the slip.":"More than one person matches: "+names.join("; ")+". Keep typing the full name.";
+  $("perRows").innerHTML=one?m.map(function(i){return'<tr><td><input type="checkbox" data-u="'+esc(i.uid)+'" checked></td><td>'+esc(i.pn)+'</td><td>'+esc(i.desc)+'</td><td class="num">'+esc(i.qty)+'</td><td class="num">'+peso(i.qty*i.cost)+'</td><td>'+esc(i.icsno||"")+'</td></tr>'}).join(""):"";
+  if(one){var p=people().find(function(x){return x[0].toLowerCase()===names[0].toLowerCase()});$("perPos").value=(p&&p[1])||m[0].rbpos||"";$("perIcs").value=uniq(m.map(function(i){return i.icsno})).join(", ")}
+  else{$("perPos").value="";$("perIcs").value=""}
+  $("perPrint").disabled=!one}
+$("perBtn").onclick=function(){$("perName").value="";$("perEntity").value=SCHOOL;$("perFund").value="";
+  $("perPrep").value=signers.prep[0];$("perPrepPos").value=signers.prep[1];$("perNoted").value=signers.noted[0];$("perNotedPos").value=signers.noted[1];
+  perRender();$("perDlg").showModal();$("perName").focus()};
+$("perName").addEventListener("input",perRender);
+$("perCancel").onclick=function(){$("perDlg").close()};
+$("perPrint").onclick=function(){
+  var sel=[].slice.call(document.querySelectorAll("#perRows input:checked")).map(function(c){return items.find(function(i){return i.uid===c.dataset.u})}).filter(Boolean);
+  if(!sel.length){alert("Tick at least one item.");return}
+  signers={prep:[$("perPrep").value.trim(),$("perPrepPos").value.trim()],noted:[$("perNoted").value.trim(),$("perNotedPos").value.trim()]};
+  try{localStorage.setItem("fces.signers",JSON.stringify(signers))}catch(e){}
+  var tot=0,rows=sel.map(function(i){tot+=i.qty*i.cost;return"<tr><td class='c'>"+esc(i.qty)+"</td><td class='c'>"+esc(i.unit)+"</td><td>"+esc(i.pn)+"</td><td>"+esc(i.serial)+"</td><td>"+peso(i.cost)+"</td><td>"+peso(i.qty*i.cost)+"</td><td>"+esc(i.desc)+(i.details?" — "+esc(i.details):"")+"</td><td>"+esc(i.invno||"")+"</td><td>"+esc(i.life)+"</td></tr>"}).join("");
+  rows+="<tr><td colspan='5'><b>Total</b></td><td><b>"+peso(tot)+"</b></td><td colspan='3'></td></tr>";
+  var nm=sel[0].rb,pos=$("perPos").value.trim();
+  $("ics").innerHTML="<div>Appendix 59</div><div class='c hd'><img src='"+document.querySelector(".logo").src+"' alt='' style='height:70px'><br>DEPARTMENT OF EDUCATION<br>MIMAROPA REGION<br>SCHOOLS DIVISION OF ROMBLON<br>ROMBLON, ROMBLON<br><br><b>INVENTORY CUSTODIAN SLIP</b></div>"+
+  "<table style='border:0'><tr><td style='border:0'>Entity Name: <b>"+esc($("perEntity").value)+"</b></td><td style='border:0'>Fund Cluster: "+esc($("perFund").value)+"</td></tr><tr><td style='border:0'>Items received by: <b>"+esc(nm)+"</b></td><td style='border:0'>ICS No.: "+esc($("perIcs").value)+"</td></tr></table>"+
+  "<table><thead><tr><th rowspan=2>Qty</th><th rowspan=2>Unit</th><th rowspan=2>Semi-Expendable Property #</th><th rowspan=2>Serial #</th><th colspan=2>Amount</th><th rowspan=2>Description</th><th rowspan=2>Inventory Item No.</th><th rowspan=2>Estimated Useful Life</th></tr><tr><th>Unit Cost</th><th>Total Cost</th></tr></thead><tbody>"+rows+"</tbody></table>"+
+  "<div class='sig'><div>Received from:<div class='line c'></div><div class='c'>Signature Over Printed Name</div><div class='line c'></div><div class='c'>Position/Office</div><div class='line'></div><div class='c'>Date</div></div>"+
+  "<div style='border-left:1px solid #000'>Received by:<div class='line c'><b>"+esc(nm)+"</b></div><div class='c'>Signature Over Printed Name</div><div class='line c'>"+esc(pos)+"</div><div class='c'>Position/Office</div><div class='line'></div><div class='c'>Date</div></div></div>"+
+  "<div class='pn'>Prepared by:<div class='nm'><b>"+esc(signers.prep[0])+"</b></div><div>"+esc(signers.prep[1])+"</div></div>"+
+  "<div class='pn'>Noted by:<div class='nm'><b>"+esc(signers.noted[0])+"</b></div><div>"+esc(signers.noted[1])+"</div></div>";
+  $("perDlg").close();setTimeout(function(){document.body.className="p-ics";window.print();document.body.className=""},100)};
 
 /* ICS */
 $("ics").onclick=function(){
