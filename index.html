@@ -204,6 +204,16 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
 .actions{display:flex;flex-wrap:wrap;gap:.4rem}
 .actions button{min-height:2.2rem;padding:.3rem .65rem}
 @media(max-width:700px){.actions{width:100%}.actions button{flex:1 1 45%}.actions #add{flex:1 1 100%}}
+#dlg{max-height:96vh}
+#form h2{margin:0 0 .35rem;font-size:1.1rem}
+#form .g{gap:.3rem .5rem}
+#form .g label{font-size:.78rem}
+#form .g input,#form .g select{min-height:1.95rem;padding:.2rem .4rem;margin-top:.1rem}
+#form .btns{position:sticky;bottom:0;z-index:2;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.5rem -1rem -.8rem;padding:.5rem 1rem;background:var(--panel);border-top:1px solid var(--line)}
+#form .btns .preview{margin:0;padding:.2rem .6rem;gap:1.2rem;font-size:.75rem}
+#form .btns .preview b{font-size:.95rem}
+#form .bb{display:flex;gap:.5rem;margin-left:auto}
+@media(max-width:700px){#form .btns{margin:.5rem -.7rem -.7rem;padding:.5rem .7rem}#form .bb{width:100%}#form .bb button{flex:1}}
 </style>
 </head>
 <body>
@@ -375,9 +385,11 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
       <label>Estimated useful life<input name="life" placeholder="e.g. 5 years" maxlength="30" list="lifeList" autocomplete="off"></label>
       <label id="iWrap" class="s2" hidden>Your inventory item no.<input name="invman" maxlength="30" placeholder="e.g. 2025-09-01"></label>
 
-      <div class="preview s4"><div>Property number<br><b id="pv">-</b></div><div>Inventory item no.<br><b id="pvi">-</b></div></div>
     </div>
-    <div class="btns"><button type="button" id="cancel">Cancel</button><button class="primary">Save item</button></div>
+    <div class="btns">
+      <div class="preview"><div>Property no.<br><b id="pv">-</b></div><div>Inventory item no.<br><b id="pvi">-</b></div></div>
+      <div class="bb"><button type="button" id="cancel">Cancel</button><button class="primary">Save item</button></div>
+    </div>
   </form>
 </dialog>
 
