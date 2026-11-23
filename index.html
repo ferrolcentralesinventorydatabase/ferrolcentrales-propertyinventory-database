@@ -336,11 +336,11 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
       </label>
       <label id="pmWrap" class="s4" hidden>Your property number<input name="pnman" maxlength="40" placeholder="e.g. 2025-05-03-0001-01"></label>
 
-      <label class="s2">Description<input name="desc" required maxlength="120"></label>
-      <label class="s2">More details (brand, model, color, size)<input name="details" maxlength="160" placeholder="Optional"></label>
+      <label class="s2">Description<input name="desc" required maxlength="120" list="descList" autocomplete="off" placeholder="Type or choose a previous item"></label>
+      <label class="s2">More details (brand, model, color, size)<input name="details" maxlength="160" list="detList" autocomplete="off" placeholder="Optional"></label>
 
       <label>Quantity<input name="qty" type="number" min="1" required value="1"></label>
-      <label>Unit<input name="unit" value="pc" maxlength="12"></label>
+      <label>Unit<input name="unit" value="pc" maxlength="12" list="unitList" autocomplete="off"></label>
       <label>Unit cost (₱)<input name="cost" type="number" min="0" step="0.01" required value="0"></label>
       <label>Total value<input name="total" readonly tabindex="-1" value="₱0.00" style="font-weight:600"></label>
 
@@ -355,14 +355,14 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
       <label>Condition<select name="cond"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Condemned</option></select></label>
       <label id="locWrap" class="s4" hidden>Specify the location<input name="locOther" maxlength="60" placeholder="e.g. Grade 3 room"></label>
 
-      <label>ICS no.<input name="icsno" maxlength="30" placeholder="Optional"></label>
+      <label>ICS no.<input name="icsno" maxlength="30" placeholder="Optional" list="icsList" autocomplete="off"></label>
       <label>Received by (name)<input name="rb" maxlength="60" list="staffList" autocomplete="off" placeholder="Type first letters"></label>
       <label class="s2">Received by (position / office)<input name="rbpos" maxlength="60" placeholder="Optional"></label>
 
       <label>Inventory item no.
         <select name="imode"><option value="auto">Generate automatically (YYYY-MM-NN)</option><option value="manual">Type it myself</option><option value="none">Leave blank</option></select>
       </label>
-      <label>Estimated useful life<input name="life" placeholder="e.g. 5 years" maxlength="30"></label>
+      <label>Estimated useful life<input name="life" placeholder="e.g. 5 years" maxlength="30" list="lifeList" autocomplete="off"></label>
       <label id="iWrap" class="s2" hidden>Your inventory item no.<input name="invman" maxlength="30" placeholder="e.g. 2025-09-01"></label>
 
       <div class="preview s4"><div>Property number<br><b id="pv">-</b></div><div>Inventory item no.<br><b id="pvi">-</b></div></div>
@@ -425,7 +425,7 @@ button.alert:hover{border-color:var(--ink);border-left-width:4px}
   </div>
 </dialog>
 
-<datalist id="staffList"></datalist>
+<datalist id="staffList"></datalist><datalist id="descList"></datalist><datalist id="detList"></datalist><datalist id="unitList"></datalist><datalist id="lifeList"></datalist><datalist id="icsList"></datalist>
 
 <dialog id="stDlg">
   <h2>Staff list</h2>
@@ -495,7 +495,7 @@ function seed(){
   raw.forEach(function(r){r.pn=makePN(r);items.push(r)});
 }
 function load(){try{var s=localStorage.getItem(KEY);if(s){items=JSON.parse(s);return}}catch(e){}seed()}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}if(typeof refreshLists==="function")refreshLists()}
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 function needFix(i){return i.pmode!=="manual"&&i.fmt==="full"&&String(i.pn).split("-")[1]!==i.grp}
@@ -838,13 +838,28 @@ $("impAdd").onclick=function(){impSync();
     d.uid=uid();d.added=Date.now();items.push(d)});
   save();render();$("impDlg").close();alert(pick.length+" item(s) added. Please check them in the table.")};
 
+/* choices from previously encoded items */
+function uniq(arr){var seen={},out=[];arr.forEach(function(x){x=String(x||"").trim();var k=x.toLowerCase();if(x&&!seen[k]){seen[k]=1;out.push(x)}});return out.sort(function(a,b){return a.localeCompare(b)})}
+function dl(id,arr){$(id).innerHTML=arr.map(function(x){return'<option value="'+esc(x)+'"></option>'}).join("")}
+function refreshLists(){dl("descList",uniq(items.map(function(i){return i.desc})));dl("detList",uniq(items.map(function(i){return i.details})));
+  dl("unitList",uniq(["pc","unit","set","box","ream","pair","cont."].concat(items.map(function(i){return i.unit}))));
+  dl("lifeList",uniq(items.map(function(i){return i.life})));dl("icsList",uniq(items.map(function(i){return i.icsno})));staffOpts()}
+function lastByDesc(v){v=String(v).trim().toLowerCase();if(!v)return null;for(var k=items.length-1;k>=0;k--)if(String(items[k].desc).toLowerCase()===v)return items[k];return null}
+function fillFromPrev(){var f=F();if(editing)return;var m=lastByDesc(f.desc.value);if(!m)return;
+  f.desc.value=m.desc;f.details.value=m.details||"";f.unit.value=m.unit||"pc";f.cost.value=m.cost;f.life.value=m.life||"";
+  f.grp.value=m.grp;fillSub(m.sub);fillGl(m.gl);updTotal();preview()}
+ff.desc.addEventListener("input",function(e){if(!e.inputType||e.inputType==="insertReplacementText")fillFromPrev()});
+ff.desc.addEventListener("change",fillFromPrev);
+
 /* staff list and name suggestions */
 var STAFF0=[["Girlie F. Ferrer","Teacher III/Kinder-Ecoda"],["Fe G. Gamos","Teacher V/Grade 1-Agoncillo"],["Mercedita D. Sarmiento","Teacher II/Grade 1-Silang"],["Ray Ann S. Paroginog","Teacher I/Grade 1-Jacinto"],["Awit S. Espiritu","Teacher V/Grade 2-Baltazar"],["Fe A. Madeja","Teacher VI/Grade 2-Quezon"],["Marivic G. Trencera","Teacher V/Grade 3-Lapu-Lapu"],["Jannet G. Tiaga","Teacher V/Grade 3-Malvar"],["Leizel S. De Castro","Teacher III/Grade 4-Aguinaldo"],["Monalee M. Prado","Teacher VI/Grade 4-Bonifacio"],["Maria Fe F. Penuliar","Teacher II/Grade 5-Del Pilar"],["Maricel V. Guevarra","Teacher/Grade 5-Luna"],["Anabet T. Suner","Master Teacher II/Grade 6-Zamora"],["Elma A. Gado","Teacher II/Grade 6-Rizal"],["Mary Jane F. Agoilo","Teacher II/Grade 6-Aquino"],["Erlyn T. Cawaling","Teacher I/SNED-Classroom"],["Sofia G. Cajilig","Teacher I/ALS"],["Ma. Christina V. Famisan","Teacher I/H.E"],["Angelica T. Gan","Nurse II/School Clinic"],["John Albert M. Tan","Administrative Officer II/Admin. Office"],["Archie F. Galicia","Principal I/Principal's Office"]];
 var staff=STAFF0.map(function(p){return p.slice()}),stDraft=[];
 try{var sv=JSON.parse(localStorage.getItem("fces.staff")||"null");if(Array.isArray(sv))staff=sv}catch(e){}
-function staffOpts(){$("staffList").innerHTML=staff.map(function(p){return'<option value="'+esc(p[0])+'" label="'+esc(p[1])+'"></option>'}).join("")}
+function people(){var m={};staff.forEach(function(p){m[p[0].toLowerCase()]=p});
+  items.forEach(function(i){var k=String(i.rb||"").toLowerCase();if(k&&!m[k])m[k]=[i.rb,i.rbpos||""]});return Object.keys(m).map(function(k){return m[k]})}
+function staffOpts(){$("staffList").innerHTML=people().map(function(p){return'<option value="'+esc(p[0])+'" label="'+esc(p[1])+'"></option>'}).join("")}
 function bindStaff(nameEl,posEl){nameEl.addEventListener("input",function(){var v=nameEl.value.trim().toLowerCase();
-  var p=staff.find(function(x){return x[0].toLowerCase()===v});if(p){nameEl.value=p[0];posEl.value=p[1]}})}
+  var p=people().find(function(x){return x[0].toLowerCase()===v});if(p){nameEl.value=p[0];if(p[1]||!posEl.value)posEl.value=p[1]}})}
 bindStaff(F().rb,F().rbpos);bindStaff($("icsForm").rfName,$("icsForm").rfPos);bindStaff($("icsForm").rbName,$("icsForm").rbPos);bindStaff($("impRb"),$("impRbp"));
 staffOpts();
 function stRender(){$("stRows").innerHTML=stDraft.map(function(p,i){return'<tr><td><input data-i="'+i+'" data-k="0" value="'+esc(p[0])+'"></td><td><input data-i="'+i+'" data-k="1" value="'+esc(p[1])+'"></td><td><button type="button" class="danger" data-del="'+i+'">Delete</button></td></tr>'}).join("")}
@@ -973,7 +988,7 @@ function ref(){
     Object.keys(a.subs).map(function(s){var gl=a.subs[s].gl;return Object.keys(gl).map(function(k,n){
       return"<tr><td>"+(n?"":esc(a.subs[s].name))+"</td><td>"+(n?"":s)+"</td><td>"+esc(gl[k])+"</td><td>"+k+"</td></tr>"}).join("")}).join("")+"</tbody></table>"}).join("");
 }
-load();render();ref();
+load();render();ref();refreshLists();
 /* login */
 var AKEY="fces.account",FKEY="fces.fails",SKEY="fces.session",enc=new TextEncoder(),idleT=null;
 function b64(buf){return btoa(String.fromCharCode.apply(null,new Uint8Array(buf)))}
